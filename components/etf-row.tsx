@@ -9,6 +9,8 @@ import { Sparkline } from "./sparkline";
 import { RiskBars } from "./risk-bars";
 import { isFavorite, toggleFavorite } from "@/lib/storage/favorites";
 import type { EtfWithPeriodData, PeriodKey } from "@/lib/data/etfs";
+import { CompareSelect } from "./compare-select";
+import { DEFAULT_COMPARE_TICKER } from "@/lib/data/benchmarks";
 import { getEtfEmoji } from "@/lib/data/emoji";
 
 function annualFeeLabel(ter: string | null): string {
@@ -62,6 +64,9 @@ export function EtfRow({
   const [period, setPeriod] = useState<Period>("1Y");
   const [stats, setStats] = useState<PriceStats | null>(null);
   const [fav, setFav] = useState(false);
+  const [compare, setCompare] = useState<string>(
+    etf.ticker === DEFAULT_COMPARE_TICKER ? "" : DEFAULT_COMPARE_TICKER,
+  );
   const emoji = getEtfEmoji(etf.ticker);
   const sparkData = etf.periodSparklines?.[previewPeriod] ?? null;
   const periodReturn = etf.periodReturns?.[previewPeriod] ?? null;
@@ -226,27 +231,41 @@ export function EtfRow({
               ticker={etf.ticker}
               period={period}
               variant="compact"
+              compareTicker={compare}
               onStats={setStats}
             />
 
-            <div>
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                Time period
+            <div className="space-y-3">
+              <div>
+                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Time period
+                </div>
+                <div className="flex flex-wrap gap-1 lg:flex-col">
+                  {PERIODS.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPeriod(p)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors lg:text-left ${
+                        period === p
+                          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                          : "text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1 lg:flex-col">
-                {PERIODS.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors lg:text-left ${
-                      period === p
-                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                        : "text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+              <div>
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Compare with
+                </div>
+                <CompareSelect
+                  value={compare}
+                  onChange={setCompare}
+                  excludeTicker={etf.ticker}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>

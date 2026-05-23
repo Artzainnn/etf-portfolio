@@ -1,0 +1,595 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Info } from "lucide-react";
+import { getRawSeries, type Period } from "@/lib/marketData/clientPrices";
+import { CompareSelect } from "./compare-select";
+import {
+  COMPARE_BENCHMARKS,
+  DEFAULT_COMPARE_TICKER,
+} from "@/lib/data/benchmarks";
+
+interface Allocation {
+  ticker: string;
+  friendlyName: string;
+  percentage: number;
+}
+
+interface SeriesPoint {
+  date: string;
+  sgd: number;
+}
+
+interface ChartPoint {
+  date: string;
+  portfolio: number;
+  compare?: number;
+}
+
+const PERIODS: Period[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
+const PERIOD_LABELS: Record<Period, string> = {
+  "1M": "1 month",
+  "3M": "3 months",
+  "6M": "6 months",
+  "1Y": "1 year",
+  "3Y": "3 years",
+  "5Y": "5 years",
+  Max: "all-time",
+};
+const PERIOD_DAYS: Record<Period, number | null> = {
+  "1M": 31,
+  "3M": 92,
+  "6M": 183,
+  "1Y": 366,
+  "3Y": 366 * 3,
+  "5Y": 366 * 5,
+  Max: null,
+};
+
+/**
+ * Look up the most recent price at or before `targetDate` in a sorted
+ * series. Returns null if no such price exists.
+ */
+function priceAtOrBefore(
+  series: SeriesPoint[],
+  targetDate: string,
+): number | null {
+  // Linear scan with early-exit — series is sorted ascending by date.
+  let last: number | null = null;
+  for (const p of series) {
+    if (p.date > targetDate) break;
+    last = p.sgd;
+  }
+  return last;
+}
+
+interface BacktestResult {
+  points: ChartPoint[];
+  /** ISO date string from which the chart actually starts. */
+  effectiveStart: string;
+  /** ETF that limits the coverage (youngest constituent), if any. */
+  limitingFund: { ticker: string; friendlyName: string; startDate: string } | null;
+  /** Total return over the chart range, portfolio. */
+  portfolioReturn: number;
+  /** Total return over the chart range, compare benchmark (null if no compare). */
+  compareReturn: number | null;
+}
+
+export function PortfolioBacktest({
+  allocations,
+}: {
+  allocations: Allocation[];
+}) {
+  const [period, setPeriod] = useState<Period>("1Y");
+  const [compare, setCompare] = useState<string>(DEFAULT_COMPARE_TICKER);
+  const [result, setResult] = useState<BacktestResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Only allocations with > 0% matter for the backtest
+  const activeAllocations = allocations.filter((a) => a.percentage > 0);
+  const totalWeight = activeAllocations.reduce(
+    (s, a) => s + a.percentage,
+    0,
+  );
+
+  useEffect(() => {
+    if (activeAllocations.length === 0) {
+      setResult(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const tickers = activeAllocations.map((a) => a.ticker);
+        const seriesEntries = await Promise.all(
+          tickers.map(async (t) => {
+            const s = await getRawSeries(t);
+            return [t, s?.points ?? null] as [string, SeriesPoint[] | null];
+          }),
+        );
+
+        if (cancelled) return;
+
+        const seriesMap = new Map<string, SeriesPoint[]>();
+        for (const [t, points] of seriesEntries) {
+          if (points && points.length >= 2) seriesMap.set(t, points);
+        }
+        if (seriesMap.size === 0) {
+          setError("No price data available for these funds.");
+          setResult(null);
+          setLoading(false);
+          return;
+        }
+
+        // Common date range = intersection of all funds
+        let commonStart = "";
+        let commonEnd = "";
+        let limitingTicker = "";
+        for (const [ticker, points] of seriesMap) {
+          if (commonStart === "" || points[0].date > commonStart) {
+            commonStart = points[0].date;
+            limitingTicker = ticker;
+          }
+          const last = points[points.length - 1].date;
+          if (commonEnd === "" || last < commonEnd) commonEnd = last;
+        }
+
+        // Apply the requested period — but clamp to commonStart
+        const days = PERIOD_DAYS[period];
+        const lastDateMs = new Date(commonEnd).getTime();
+        const requestedStart = days
+          ? new Date(lastDateMs - days * 86400_000).toISOString().slice(0, 10)
+          : "1990-01-01";
+        const effectiveStart =
+          requestedStart > commonStart ? requestedStart : commonStart;
+
+        // Pick a spine series — the longest one within the effective range
+        let spine: SeriesPoint[] | null = null;
+        let spineLength = 0;
+        for (const points of seriesMap.values()) {
+          const filtered = points.filter(
+            (p) => p.date >= effectiveStart && p.date <= commonEnd,
+          );
+          if (filtered.length > spineLength) {
+            spine = filtered;
+            spineLength = filtered.length;
+          }
+        }
+        if (!spine || spine.length < 2) {
+          setError("Not enough price history for this period.");
+          setResult(null);
+          setLoading(false);
+          return;
+        }
+
+        // Capture starting prices for each fund at effectiveStart
+        const startPrices = new Map<string, number>();
+        for (const [ticker, points] of seriesMap) {
+          const p = priceAtOrBefore(points, effectiveStart);
+          if (p != null && p > 0) startPrices.set(ticker, p);
+        }
+
+        // Compute portfolio series — each day's daily return is the
+        // allocation-weighted sum of constituent daily returns
+        // (continuous rebalancing).
+        const portfolioPoints: { date: string; value: number }[] = [];
+        let portfolioValue = 100;
+        const prevPrices = new Map<string, number>(startPrices);
+        portfolioPoints.push({ date: spine[0].date, value: 100 });
+
+        for (let i = 1; i < spine.length; i++) {
+          const dateStr = spine[i].date;
+          let dailyReturn = 0;
+          let weightUsed = 0;
+          for (const a of activeAllocations) {
+            const series = seriesMap.get(a.ticker);
+            if (!series) continue;
+            const today = priceAtOrBefore(series, dateStr);
+            const prev = prevPrices.get(a.ticker);
+            if (today != null && prev != null && prev > 0) {
+              const w = a.percentage / 100;
+              dailyReturn += w * (today / prev - 1);
+              weightUsed += w;
+              prevPrices.set(a.ticker, today);
+            }
+          }
+          // If weights don't sum to 1 (some funds missing), normalise the
+          // return so the active weights count as 100%
+          if (weightUsed > 0 && Math.abs(weightUsed - totalWeight / 100) < 0.01) {
+            // Match the user's allocation weighting
+          }
+          portfolioValue *= 1 + dailyReturn;
+          portfolioPoints.push({ date: dateStr, value: portfolioValue });
+        }
+
+        // Compare benchmark series, normalised to 100 at effectiveStart
+        let compareSeries: Map<string, number> | null = null;
+        let compareReturn: number | null = null;
+        if (compare) {
+          const compareRaw = await getRawSeries(compare);
+          if (compareRaw?.points && compareRaw.points.length >= 2) {
+            const baseline = priceAtOrBefore(compareRaw.points, effectiveStart);
+            if (baseline != null && baseline > 0) {
+              compareSeries = new Map();
+              for (const point of compareRaw.points) {
+                if (point.date < effectiveStart || point.date > commonEnd)
+                  continue;
+                compareSeries.set(point.date, (point.sgd / baseline) * 100);
+              }
+              const lastCompareValue = compareSeries.get(
+                portfolioPoints[portfolioPoints.length - 1].date,
+              );
+              if (lastCompareValue != null) {
+                compareReturn = lastCompareValue / 100 - 1;
+              }
+            }
+          }
+        }
+
+        // Build combined chart data
+        const points: ChartPoint[] = portfolioPoints.map((p) => ({
+          date: p.date,
+          portfolio: p.value,
+          compare: compareSeries?.get(p.date),
+        }));
+
+        if (cancelled) return;
+
+        const limitingAlloc =
+          limitingTicker && commonStart > requestedStart
+            ? activeAllocations.find((a) => a.ticker === limitingTicker) ??
+              null
+            : null;
+
+        setResult({
+          points,
+          effectiveStart,
+          limitingFund: limitingAlloc
+            ? {
+                ticker: limitingAlloc.ticker,
+                friendlyName: limitingAlloc.friendlyName,
+                startDate: commonStart,
+              }
+            : null,
+          portfolioReturn:
+            portfolioPoints[portfolioPoints.length - 1].value / 100 - 1,
+          compareReturn,
+        });
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setError((e as Error).message);
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    period,
+    compare,
+    activeAllocations.map((a) => `${a.ticker}:${a.percentage}`).join(","),
+  ]);
+
+  if (allocations.length === 0) {
+    return null;
+  }
+
+  const compareLabel =
+    compare &&
+    (COMPARE_BENCHMARKS.find((b) => b.ticker === compare)?.label ?? compare);
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        How this portfolio would have done in the past
+      </h2>
+      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        Simulated with continuous rebalancing to your target allocation. In
+        SGD. Past performance doesn't predict the future.
+      </p>
+
+      {/* Chart + controls */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_140px]">
+        <div className="aspect-[16/9] w-full">
+          {loading ? (
+            <div className="flex h-full animate-pulse items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
+              Loading backtest…
+            </div>
+          ) : error || !result || result.points.length < 2 ? (
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+              <div>
+                <div>Couldn't compute backtest.</div>
+                {error && (
+                  <div className="mt-1 text-[10px] opacity-60">{error}</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <BacktestChart points={result.points} period={period} />
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Time period
+            </div>
+            <div className="flex flex-wrap gap-1 lg:flex-col">
+              {PERIODS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors lg:text-left ${
+                    period === p
+                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                      : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }`}
+                  title={`Show ${PERIOD_LABELS[p]}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Compare with
+            </div>
+            <CompareSelect
+              value={compare}
+              onChange={setCompare}
+              className="w-full"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Stat tiles */}
+      {result && !loading && !error && (
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatTile
+            label="Your portfolio"
+            value={result.portfolioReturn}
+            highlight
+          />
+          {result.compareReturn != null && compareLabel && (
+            <>
+              <StatTile
+                label={compareLabel.replace(/^[^\s]+\s/, "")}
+                value={result.compareReturn}
+                muted
+              />
+              <StatTile
+                label="Difference"
+                value={result.portfolioReturn - result.compareReturn}
+                differential
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Coverage note */}
+      {result?.limitingFund && (
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Chart starts from{" "}
+            <strong>{formatHumanDate(result.limitingFund.startDate)}</strong>{" "}
+            because <em>{result.limitingFund.friendlyName}</em> only has data
+            from then. Pick a shorter period or remove that fund to see a
+            longer history.
+          </span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BacktestChart({
+  points,
+  period,
+}: {
+  points: ChartPoint[];
+  period: Period;
+}) {
+  const lastPortfolio = points[points.length - 1].portfolio;
+  const isPositive = lastPortfolio >= 100;
+  const mainColor = isPositive ? "#10b981" : "#f43f5e";
+  const compareColor = "#a1a1aa";
+  const gradientId = `bt-grad-${period}`;
+
+  const allValues: number[] = [];
+  for (const p of points) {
+    allValues.push(p.portfolio);
+    if (p.compare != null) allValues.push(p.compare);
+  }
+  const yMin = Math.min(...allValues);
+  const yMax = Math.max(...allValues);
+  const yPad = (yMax - yMin) * 0.1;
+
+  const tickCount = 6;
+  const tickIndices = Array.from({ length: tickCount }, (_, i) =>
+    Math.floor((i * (points.length - 1)) / (tickCount - 1)),
+  );
+  const tickDates = new Set(tickIndices.map((i) => points[i].date));
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart
+        data={points}
+        margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={mainColor} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={mainColor} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="currentColor"
+          className="text-zinc-200 dark:text-zinc-800"
+          vertical={false}
+        />
+        <XAxis
+          dataKey="date"
+          tickFormatter={(d) => formatXLabel(d, period)}
+          ticks={Array.from(tickDates)}
+          interval={0}
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 10, fill: "currentColor" }}
+          className="text-zinc-500"
+        />
+        <YAxis
+          domain={[yMin - yPad, yMax + yPad]}
+          tickFormatter={(v) => `${(v - 100).toFixed(0)}%`}
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 10, fill: "currentColor" }}
+          className="text-zinc-500"
+          width={40}
+        />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload || payload.length === 0) return null;
+            const p = payload[0].payload as ChartPoint;
+            const portfolioChange = p.portfolio - 100;
+            const compareChange = p.compare != null ? p.compare - 100 : null;
+            return (
+              <div className="rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  {p.date}
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span
+                    className="inline-block h-1.5 w-3 rounded-sm"
+                    style={{ backgroundColor: mainColor }}
+                  />
+                  <span
+                    className={`font-medium tabular-nums ${
+                      portfolioChange >= 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {portfolioChange >= 0 ? "+" : ""}
+                    {portfolioChange.toFixed(2)}%
+                  </span>
+                </div>
+                {compareChange != null && (
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <span
+                      className="inline-block h-1.5 w-3 rounded-sm"
+                      style={{ backgroundColor: compareColor }}
+                    />
+                    <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                      {compareChange >= 0 ? "+" : ""}
+                      {compareChange.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          }}
+        />
+        <Area
+          type="monotone"
+          dataKey="portfolio"
+          stroke={mainColor}
+          strokeWidth={1.75}
+          fill={`url(#${gradientId})`}
+          isAnimationActive={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="compare"
+          stroke={compareColor}
+          strokeWidth={1.25}
+          strokeDasharray="4 3"
+          dot={false}
+          isAnimationActive={false}
+          connectNulls
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  highlight = false,
+  muted = false,
+  differential = false,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+  muted?: boolean;
+  differential?: boolean;
+}) {
+  const pct = value * 100;
+  const sign = pct >= 0 ? "+" : "";
+  const color = muted
+    ? "text-zinc-700 dark:text-zinc-300"
+    : pct >= 0
+      ? "text-emerald-600 dark:text-emerald-400"
+      : "text-rose-600 dark:text-rose-400";
+  return (
+    <div
+      className={`rounded-lg border px-4 py-3 ${
+        highlight
+          ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+          : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/40"
+      }`}
+    >
+      <div className="text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        {label}
+      </div>
+      <div className={`mt-1 text-xl font-semibold tabular-nums ${color}`}>
+        {differential ? sign : sign}
+        {pct.toFixed(1)}%
+      </div>
+    </div>
+  );
+}
+
+function formatXLabel(dateStr: string, period: Period): string {
+  const d = new Date(dateStr);
+  if (period === "1M" || period === "3M" || period === "6M") {
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+  if (period === "1Y") {
+    return d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+  }
+  return d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+}
+
+function formatHumanDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}

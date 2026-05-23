@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { PriceChart, type Period, type PriceStats } from "./price-chart";
 import { PeriodStats } from "./period-stats";
+import { CompareSelect } from "./compare-select";
+import { DEFAULT_COMPARE_TICKER } from "@/lib/data/benchmarks";
 
 const PERIODS: Period[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
 
@@ -15,6 +17,9 @@ export function EtfDetailChart({
 }) {
   const [period, setPeriod] = useState<Period>("1Y");
   const [stats, setStats] = useState<PriceStats | null>(null);
+  const [compare, setCompare] = useState<string>(
+    ticker === DEFAULT_COMPARE_TICKER ? "" : DEFAULT_COMPARE_TICKER,
+  );
 
   return (
     <div>
@@ -23,6 +28,7 @@ export function EtfDetailChart({
           ticker={ticker}
           period={period}
           variant="tall"
+          compareTicker={compare}
           onStats={setStats}
         />
 
@@ -46,6 +52,17 @@ export function EtfDetailChart({
                 </button>
               ))}
             </div>
+          </div>
+          <div>
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Compare with
+            </div>
+            <CompareSelect
+              value={compare}
+              onChange={setCompare}
+              excludeTicker={ticker}
+              className="w-full"
+            />
           </div>
         </div>
       </div>

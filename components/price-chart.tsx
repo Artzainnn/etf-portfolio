@@ -3,42 +3,46 @@
 import { useEffect, useState } from "react";
 import {
   Area,
-  AreaChart,
   CartesianGrid,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import {
-  getPriceSeries,
+  getSeriesWithCompare,
   type Period as ClientPeriod,
   type PriceStats as ClientPriceStats,
 } from "@/lib/marketData/clientPrices";
+import { COMPARE_BENCHMARKS } from "@/lib/data/benchmarks";
 
 export type Period = ClientPeriod;
 export type PriceStats = ClientPriceStats;
-
-export interface PricesResponse {
-  ticker: string;
-  period: Period;
-  nativeCurrency: string;
-  baseCurrency: string;
-  points: { date: string; value: number }[];
-  stats: PriceStats;
-}
 
 interface Props {
   ticker: string;
   period: Period;
   /** Compact mode is used in expanded list rows; tall mode on the detail page. */
   variant?: "compact" | "tall";
-  /** Notify parent when stats land (so it can render return tiles). */
+  /** Optional comparison benchmark ticker (empty string = no comparison). */
+  compareTicker?: string;
+  /** Notify parent when stats land. */
   onStats?: (stats: PriceStats | null) => void;
 }
 
-export function PriceChart({ ticker, period, variant = "compact", onStats }: Props) {
-  const [data, setData] = useState<PricesResponse | null>(null);
+export function PriceChart({
+  ticker,
+  period,
+  variant = "compact",
+  compareTicker = "",
+  onStats,
+}: Props) {
+  const [data, setData] = useState<{
+    points: { date: string; main: number; compare?: number }[];
+    stats: PriceStats;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +51,7 @@ export function PriceChart({ ticker, period, variant = "compact", onStats }: Pro
     setLoading(true);
     setError(null);
 
-    getPriceSeries(ticker, period)
+    getSeriesWithCompare(ticker, compareTicker || null, period)
       .then((result) => {
         if (cancelled) return;
         if (!result) {
@@ -57,15 +61,11 @@ export function PriceChart({ ticker, period, variant = "compact", onStats }: Pro
           return;
         }
         setData({
-          ticker: result.ticker,
-          period,
-          nativeCurrency: result.nativeCurrency,
-          baseCurrency: result.baseCurrency,
-          points: result.points,
-          stats: result.stats,
+          points: result.combined,
+          stats: result.main.stats,
         });
         setLoading(false);
-        onStats?.(result.stats);
+        onStats?.(result.main.stats);
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -77,7 +77,7 @@ export function PriceChart({ ticker, period, variant = "compact", onStats }: Pro
     return () => {
       cancelled = true;
     };
-  }, [ticker, period, onStats]);
+  }, [ticker, period, compareTicker, onStats]);
 
   const heightCls = variant === "tall" ? "aspect-[16/9]" : "aspect-[16/9]";
 
@@ -104,37 +104,48 @@ export function PriceChart({ ticker, period, variant = "compact", onStats }: Pro
     );
   }
 
-  const first = data.points[0].value;
-  const last = data.points[data.points.length - 1].value;
-  const totalChangePct = (last / first - 1) * 100;
-  const isPositive = totalChangePct >= 0;
+  const first = data.points[0].main;
+  const last = data.points[data.points.length - 1].main;
+  const isPositive = last >= first;
 
-  // Pick a reasonable number of X-axis ticks
+  // Pick reasonable X-axis ticks
   const tickCount = variant === "tall" ? 6 : 4;
   const tickIndices = Array.from({ length: tickCount }, (_, i) =>
     Math.floor((i * (data.points.length - 1)) / (tickCount - 1)),
   );
   const tickDates = new Set(tickIndices.map((i) => data.points[i].date));
 
-  // y-axis padding
-  const values = data.points.map((p) => p.value);
-  const yMin = Math.min(...values);
-  const yMax = Math.max(...values);
+  // y-axis padding — include both series in the range
+  const allValues: number[] = [];
+  for (const p of data.points) {
+    allValues.push(p.main);
+    if (p.compare != null) allValues.push(p.compare);
+  }
+  const yMin = Math.min(...allValues);
+  const yMax = Math.max(...allValues);
   const yPad = (yMax - yMin) * 0.1;
 
-  const strokeColor = isPositive ? "#059669" : "#dc2626";
+  const mainColor = isPositive ? "#10b981" : "#f43f5e";
+  const compareColor = "#a1a1aa";
+  const gradientId = `grad-${ticker}-${period}`;
+
+  const compareLabel =
+    compareTicker
+      ? COMPARE_BENCHMARKS.find((b) => b.ticker === compareTicker)?.label ??
+        compareTicker
+      : null;
 
   return (
     <div className={`${heightCls} w-full`}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
+        <ComposedChart
           data={data.points}
           margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
         >
           <defs>
-            <linearGradient id={`grad-${ticker}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={strokeColor} stopOpacity={0.25} />
-              <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={mainColor} stopOpacity={0.25} />
+              <stop offset="100%" stopColor={mainColor} stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -165,39 +176,92 @@ export function PriceChart({ ticker, period, variant = "compact", onStats }: Pro
           <Tooltip
             content={({ active, payload }) => {
               if (!active || !payload || payload.length === 0) return null;
-              const p = payload[0].payload as { date: string; value: number };
-              const change = p.value - 100;
+              const p = payload[0].payload as {
+                date: string;
+                main: number;
+                compare?: number;
+              };
+              const mainChange = p.main - 100;
+              const compareChange =
+                p.compare != null ? p.compare - 100 : null;
               return (
                 <div className="rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                   <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                     {p.date}
                   </div>
-                  <div
-                    className={`font-medium tabular-nums ${
-                      change >= 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-rose-600 dark:text-rose-400"
-                    }`}
-                  >
-                    {change >= 0 ? "+" : ""}
-                    {change.toFixed(2)}%
+                  <div className="mt-1 flex items-center gap-2">
+                    <span
+                      className="inline-block h-1.5 w-3 rounded-sm"
+                      style={{ backgroundColor: mainColor }}
+                    />
+                    <span
+                      className={`font-medium tabular-nums ${
+                        mainChange >= 0
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-600 dark:text-rose-400"
+                      }`}
+                    >
+                      {mainChange >= 0 ? "+" : ""}
+                      {mainChange.toFixed(2)}%
+                    </span>
                   </div>
+                  {compareChange != null && (
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <span
+                        className="inline-block h-1.5 w-3 rounded-sm"
+                        style={{ backgroundColor: compareColor }}
+                      />
+                      <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                        {compareChange >= 0 ? "+" : ""}
+                        {compareChange.toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             }}
           />
           <Area
             type="monotone"
-            dataKey="value"
-            stroke={strokeColor}
+            dataKey="main"
+            stroke={mainColor}
             strokeWidth={1.75}
-            fill={`url(#grad-${ticker})`}
+            fill={`url(#${gradientId})`}
             isAnimationActive={false}
           />
-        </AreaChart>
+          {compareTicker && (
+            <Line
+              type="monotone"
+              dataKey="compare"
+              stroke={compareColor}
+              strokeWidth={1.25}
+              strokeDasharray="4 3"
+              dot={false}
+              isAnimationActive={false}
+              connectNulls
+            />
+          )}
+        </ComposedChart>
       </ResponsiveContainer>
+      {compareLabel && (
+        <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+          <span className="inline-block h-1.5 w-3 rounded-sm align-middle bg-zinc-400" />{" "}
+          vs {compareLabel}
+        </div>
+      )}
     </div>
   );
+}
+
+function formatXLabel(dateStr: string, period: Period): string {
+  const d = new Date(dateStr);
+  if (period === "1M" || period === "3M" || period === "6M") {
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+  if (period === "1Y") {
+    return d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+  }
+  return d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 }
 
 /** Friendly label for the period (used in tile headings). */
@@ -220,18 +284,10 @@ export function periodLabel(period: Period): string {
   }
 }
 
-function formatXLabel(dateStr: string, period: Period): string {
-  const d = new Date(dateStr);
-  if (period === "1M" || period === "3M" || period === "6M") {
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  }
-  if (period === "1Y") {
-    return d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
-  }
-  return d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-}
-
-export function formatPct(pct: number | null, opts: { decimals?: number } = {}): string {
+export function formatPct(
+  pct: number | null,
+  opts: { decimals?: number } = {},
+): string {
   if (pct == null) return "—";
   const decimals = opts.decimals ?? 1;
   const v = pct * 100;

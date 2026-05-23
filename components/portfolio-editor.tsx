@@ -14,6 +14,7 @@ import {
 import { getEtfEmoji } from "@/lib/data/emoji";
 import { listFavorites } from "@/lib/storage/favorites";
 import { SimulatorPanel } from "./simulator-panel";
+import { PortfolioBacktest } from "./portfolio-backtest";
 
 interface AllocationState {
   etfId: number;
@@ -417,6 +418,15 @@ export function PortfolioEditor({
           />
         </section>
       </div>
+
+      {/* Historical backtest */}
+      <PortfolioBacktest
+        allocations={allocations.map((a) => ({
+          ticker: a.ticker,
+          friendlyName: a.friendlyName,
+          percentage: a.percentage,
+        }))}
+      />
     </div>
   );
 }

@@ -32,6 +32,20 @@ interface RawPriceFile {
   points: [string, number][]; // [date, sgd]
 }
 
+/** Compact raw price series — direct SGD values, full history. */
+export interface RawSeries {
+  ticker: string;
+  points: { date: string; sgd: number }[];
+}
+
+/** Series result with an optional comparison overlay aligned to main dates. */
+export interface ComparedSeriesResult {
+  main: PriceSeriesResult;
+  compare: PriceSeriesResult | null;
+  /** Date-aligned dual series for the chart. compare may be undefined per row. */
+  combined: { date: string; main: number; compare?: number }[];
+}
+
 function periodToDays(period: Period): number | null {
   switch (period) {
     case "1M":
@@ -116,6 +130,60 @@ export async function getPriceSeries(
     points,
     stats,
   };
+}
+
+/** Public helper: fetch raw SGD price points for a ticker (full history). */
+export async function getRawSeries(ticker: string): Promise<RawSeries | null> {
+  try {
+    const raw = await fetchRaw(ticker);
+    return {
+      ticker: raw.ticker,
+      points: raw.points.map(([date, sgd]) => ({ date, sgd })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get a main series + optional comparison series, both normalized to 100
+ * at their own first date within the period. The combined array uses main's
+ * dates as the spine — compare value is undefined on dates that don't exist
+ * in the compare series.
+ */
+export async function getSeriesWithCompare(
+  mainTicker: string,
+  compareTicker: string | null,
+  period: Period,
+): Promise<ComparedSeriesResult | null> {
+  const main = await getPriceSeries(mainTicker, period);
+  if (!main) return null;
+
+  if (!compareTicker || compareTicker === mainTicker) {
+    return {
+      main,
+      compare: null,
+      combined: main.points.map((p) => ({ date: p.date, main: p.value })),
+    };
+  }
+
+  const compare = await getPriceSeries(compareTicker, period);
+  if (!compare) {
+    return {
+      main,
+      compare: null,
+      combined: main.points.map((p) => ({ date: p.date, main: p.value })),
+    };
+  }
+
+  const compareByDate = new Map(compare.points.map((p) => [p.date, p.value]));
+  const combined = main.points.map((p) => ({
+    date: p.date,
+    main: p.value,
+    compare: compareByDate.get(p.date),
+  }));
+
+  return { main, compare, combined };
 }
 
 function computeStats(points: [string, number][]): PriceStats {
