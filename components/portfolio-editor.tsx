@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Loader2, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Plus, Star, Trash2, X } from "lucide-react";
 import type { Etf } from "@/lib/db/schema";
 import {
   getPortfolio,
@@ -12,6 +12,7 @@ import {
   type StoredPortfolio,
 } from "@/lib/storage/portfolios";
 import { getEtfEmoji } from "@/lib/data/emoji";
+import { listFavorites } from "@/lib/storage/favorites";
 import { SimulatorPanel } from "./simulator-panel";
 
 interface AllocationState {
@@ -455,11 +456,23 @@ function AddEtfPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setFavorites(new Set(listFavorites()));
+    function onChange() {
+      setFavorites(new Set(listFavorites()));
+    }
+    window.addEventListener("etfp:favorites-changed", onChange);
+    return () => window.removeEventListener("etfp:favorites-changed", onChange);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allEtfs
       .filter((e) => !selectedIds.has(e.id))
+      .filter((e) => (favoritesOnly ? favorites.has(e.ticker) : true))
       .filter((e) => {
         if (!q) return true;
         const hay = [
@@ -475,7 +488,7 @@ function AddEtfPicker({
         return hay.includes(q);
       })
       .slice(0, 50);
-  }, [allEtfs, selectedIds, query]);
+  }, [allEtfs, selectedIds, query, favoritesOnly, favorites]);
 
   if (!open) {
     return (
@@ -511,6 +524,26 @@ function AddEtfPicker({
           <X className="h-4 w-4" />
         </button>
       </div>
+      {favorites.size > 0 && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFavoritesOnly(!favoritesOnly)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              favoritesOnly
+                ? "border-amber-500 bg-amber-500 text-white"
+                : "border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/40"
+            }`}
+            aria-pressed={favoritesOnly}
+          >
+            <Star
+              className="h-3 w-3"
+              fill={favoritesOnly ? "currentColor" : "none"}
+            />
+            <span>Only my favorites ({favorites.size})</span>
+          </button>
+        </div>
+      )}
       <ul className="mt-2 max-h-72 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
         {filtered.length === 0 ? (
           <li className="py-6 text-center text-xs text-zinc-500">No matches.</li>
