@@ -53,11 +53,17 @@ type SortKey = "curated" | "perf_desc" | "perf_asc" | "name" | "risk" | "fee";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "curated", label: "Curated order" },
-  { key: "perf_desc", label: "Best 1-year return" },
-  { key: "perf_asc", label: "Worst 1-year return" },
+  { key: "perf_desc", label: "Best return (selected period)" },
+  { key: "perf_asc", label: "Worst return (selected period)" },
   { key: "name", label: "Alphabetical" },
   { key: "risk", label: "Lowest risk first" },
   { key: "fee", label: "Cheapest fee first" },
+];
+
+const DIVIDEND_FILTERS = [
+  { key: "acc", label: "Reinvested", icon: "🔁" },
+  { key: "dist", label: "Paid out", icon: "💵" },
+  { key: "none", label: "No dividends", icon: "—" },
 ];
 
 const PERIODS: PeriodKey[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
@@ -80,6 +86,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortKey>("curated");
   const [period, setPeriod] = useState<PeriodKey>("1Y");
+  const [activeDividends, setActiveDividends] = useState<string[]>([]);
 
   useEffect(() => {
     setFavorites(new Set(listFavorites()));
@@ -120,6 +127,14 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
         if (!matches) return false;
       }
       if (favoritesOnly && !favorites.has(e.ticker)) return false;
+      // Dividend type filter
+      if (activeDividends.length > 0) {
+        let divKey: string;
+        if (e.isAccumulating === true) divKey = "acc";
+        else if (e.isAccumulating === false) divKey = "dist";
+        else divKey = "none";
+        if (!activeDividends.includes(divKey)) return false;
+      }
       return true;
     });
 
@@ -149,7 +164,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
       );
     }
     return list;
-  }, [etfs, search, activeCategories, activeRisks, sort, favoritesOnly, favorites, period]);
+  }, [etfs, search, activeCategories, activeRisks, sort, favoritesOnly, favorites, period, activeDividends]);
 
   const toggle =
     (set: string[], setSet: (v: string[]) => void) => (value: string) => {
@@ -162,6 +177,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
     setSearch("");
     setActiveCategories([]);
     setActiveRisks([]);
+    setActiveDividends([]);
     setFavoritesOnly(false);
   };
 
@@ -169,6 +185,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
     search !== "" ||
     activeCategories.length > 0 ||
     activeRisks.length > 0 ||
+    activeDividends.length > 0 ||
     favoritesOnly;
 
   return (
@@ -236,6 +253,50 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
           </div>
         </div>
 
+        {/* Dividends chips */}
+        <div className="mt-4">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Dividends
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {DIVIDEND_FILTERS.map((d) => (
+              <Chip
+                key={d.key}
+                active={activeDividends.includes(d.key)}
+                onClick={() =>
+                  toggle(activeDividends, setActiveDividends)(d.key)
+                }
+              >
+                <span aria-hidden>{d.icon}</span>
+                <span>{d.label}</span>
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        {/* Performance period — drives sparkline + return + sort across all rows */}
+        <div className="mt-4">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Performance over
+          </div>
+          <div className="inline-flex flex-wrap rounded-lg border border-zinc-200 bg-white p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+            {PERIODS.map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                  period === p
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                }`}
+                title={`Show ${PERIOD_LABELS[p]}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Favorites toggle */}
         {favorites.size > 0 && (
           <div className="mt-4">
@@ -257,29 +318,6 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
             </button>
           </div>
         )}
-      </div>
-
-      {/* Performance period — drives sparkline + return + sort across all rows */}
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          Performance over
-        </span>
-        <div className="inline-flex rounded-lg border border-zinc-200 bg-white p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
-          {PERIODS.map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                period === p
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-              }`}
-              title={`Show ${PERIOD_LABELS[p]}`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Result count + sort */}
