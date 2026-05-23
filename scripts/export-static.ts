@@ -43,11 +43,83 @@ async function main() {
     .orderBy(asc(etfs.category), asc(etfs.ticker));
 
   console.log(`Exporting ${allEtfs.length} ETFs…`);
+
+  // Per-period returns + sparkline (for the global period filter on the list view)
+  type Period = "1M" | "3M" | "6M" | "1Y" | "3Y" | "5Y" | "Max";
+  const PERIOD_DAYS: Record<Period, number | null> = {
+    "1M": 31,
+    "3M": 92,
+    "6M": 183,
+    "1Y": 366,
+    "3Y": 366 * 3,
+    "5Y": 366 * 5,
+    Max: null,
+  };
+
+  function computePeriodData(allPoints: { date: string; sgd: number }[]) {
+    const out: {
+      returns: Record<string, number>;
+      sparklines: Record<string, number[]>;
+    } = { returns: {}, sparklines: {} };
+
+    if (allPoints.length < 2) return out;
+
+    const lastDateMs = new Date(allPoints[allPoints.length - 1].date).getTime();
+
+    for (const [periodKey, days] of Object.entries(PERIOD_DAYS) as [
+      Period,
+      number | null,
+    ][]) {
+      const cutoff = days
+        ? new Date(lastDateMs - days * 86400_000)
+        : null;
+      const sliced = cutoff
+        ? allPoints.filter((p) => new Date(p.date) >= cutoff)
+        : allPoints;
+      if (sliced.length < 2) continue;
+
+      const first = sliced[0].sgd;
+      const last = sliced[sliced.length - 1].sgd;
+      out.returns[periodKey] = last / first - 1;
+
+      // Sample ~30 points
+      const TARGET = 30;
+      const step = Math.max(1, Math.floor(sliced.length / TARGET));
+      const sampled: number[] = [];
+      for (let i = 0; i < sliced.length; i += step) {
+        sampled.push((sliced[i].sgd / first) * 100);
+      }
+      // Always include the last point
+      if (
+        sampled[sampled.length - 1] !==
+        (sliced[sliced.length - 1].sgd / first) * 100
+      ) {
+        sampled.push((sliced[sliced.length - 1].sgd / first) * 100);
+      }
+      out.sparklines[periodKey] = sampled;
+    }
+    return out;
+  }
+
+  // Build enriched ETF records with periodReturns + periodSparklines
+  const enrichedEtfs = [];
+  for (const etf of allEtfs) {
+    const series = await getPriceSeries(etf.ticker, "Max");
+    let periodReturns: Record<string, number> = {};
+    let periodSparklines: Record<string, number[]> = {};
+    if (series && series.pointsSgd.length >= 2) {
+      const computed = computePeriodData(series.pointsSgd);
+      periodReturns = computed.returns;
+      periodSparklines = computed.sparklines;
+    }
+    enrichedEtfs.push({ ...etf, periodReturns, periodSparklines });
+  }
+
   writeFileSync(
     path.join(outDir, "etfs.json"),
-    JSON.stringify(allEtfs, null, 2),
+    JSON.stringify(enrichedEtfs, null, 2),
   );
-  console.log(`  ✓ data/etfs.json (${allEtfs.length} records)`);
+  console.log(`  ✓ data/etfs.json (${enrichedEtfs.length} records with multi-period data)`);
 
   // ── 2. Export per-ticker price series (all periods in one) ────────
   // We export 'Max' (15 years) once per ticker — the client can slice it.

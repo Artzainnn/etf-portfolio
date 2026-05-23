@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Search, Star } from "lucide-react";
-import type { Etf } from "@/lib/db/schema";
 import { EtfRow } from "./etf-row";
 import { RiskBars } from "./risk-bars";
 import { listFavorites } from "@/lib/storage/favorites";
+import type { EtfWithPeriodData, PeriodKey } from "@/lib/data/etfs";
 
 const FRIENDLY_CATEGORIES: Record<
   string,
@@ -60,13 +60,26 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "fee", label: "Cheapest fee first" },
 ];
 
-export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
+const PERIODS: PeriodKey[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
+
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+  "1M": "1 month",
+  "3M": "3 months",
+  "6M": "6 months",
+  "1Y": "1 year",
+  "3Y": "3 years",
+  "5Y": "5 years",
+  Max: "all-time",
+};
+
+export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
   const [search, setSearch] = useState("");
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [activeRisks, setActiveRisks] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortKey>("curated");
+  const [period, setPeriod] = useState<PeriodKey>("1Y");
 
   useEffect(() => {
     setFavorites(new Set(listFavorites()));
@@ -114,8 +127,8 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
     const num = (v: string | null) => (v == null ? null : parseFloat(v));
     if (sort === "perf_desc" || sort === "perf_asc") {
       list = [...list].sort((a, b) => {
-        const av = num(a.return1Y);
-        const bv = num(b.return1Y);
+        const av = a.periodReturns?.[period] ?? null;
+        const bv = b.periodReturns?.[period] ?? null;
         // Push null returns to the bottom regardless of direction
         if (av == null && bv == null) return 0;
         if (av == null) return 1;
@@ -136,7 +149,7 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
       );
     }
     return list;
-  }, [etfs, search, activeCategories, activeRisks, sort, favoritesOnly, favorites]);
+  }, [etfs, search, activeCategories, activeRisks, sort, favoritesOnly, favorites, period]);
 
   const toggle =
     (set: string[], setSet: (v: string[]) => void) => (value: string) => {
@@ -246,8 +259,31 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
         )}
       </div>
 
+      {/* Performance period — drives sparkline + return + sort across all rows */}
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          Performance over
+        </span>
+        <div className="inline-flex rounded-lg border border-zinc-200 bg-white p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                period === p
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+              title={`Show ${PERIOD_LABELS[p]}`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Result count + sort */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-zinc-600 dark:text-zinc-400">
           Showing{" "}
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -303,7 +339,7 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {filtered.map((etf) => (
-              <EtfRow key={etf.ticker} etf={etf} />
+              <EtfRow key={etf.ticker} etf={etf} previewPeriod={period} />
             ))}
           </ul>
         )}

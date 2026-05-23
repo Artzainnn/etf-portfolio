@@ -15,6 +15,64 @@ export interface EtfEditorial {
 }
 
 export const EDITORIAL: Record<string, EtfEditorial> = {
+  // ─── More thematics ───────────────────────────────────────────────────
+  "HEAL.L": {
+    shortDescription:
+      "Cutting-edge healthcare — gene editing, surgical robots, AI drug discovery, personalized medicine. Smaller, more innovative companies than the boring broad healthcare fund. Big upside potential, much bigger swings.",
+    pros: [
+      "Exposure to genuine medical breakthroughs",
+      "Aging populations = structural demand for years",
+      "Diversifies away from tech/AI thematic risk",
+    ],
+    cons: [
+      "Many holdings have no profits yet",
+      "Can drop 40%+ when biotech sentiment turns",
+      "Single FDA decisions can swing the fund hard",
+    ],
+  },
+  "YODA.L": {
+    shortDescription:
+      "The space economy — satellite companies (SES, Iridium), rocket and launch providers, defense aerospace, ground equipment makers. Tiny fund, smaller companies, big bets on a not-yet-mature industry.",
+    pros: [
+      "Pure exposure to a long-term emerging industry",
+      "Mix of established defense and small space startups",
+      "Government and defense spending tailwind",
+    ],
+    cons: [
+      "Small and illiquid — wider bid/ask spreads",
+      "Most holdings unprofitable or speculative",
+      "High fees (0.75%) for a narrow theme",
+    ],
+  },
+  "ESPO.L": {
+    shortDescription:
+      "The gaming industry in one fund — Nintendo, Activision, EA, Take-Two, Tencent, Roblox, plus chip makers and esports broadcasters. Cyclical with gaming hardware launches and major game releases.",
+    pros: [
+      "Owns the giants of a huge growing industry",
+      "Global mix (US, Japan, China) — not just one region",
+      "Plays into 'screen time' secular trend",
+    ],
+    cons: [
+      "Heavily cyclical with console release cycles",
+      "Hit-driven business — flops can punish stocks",
+      "Concentrated: top 10 names dominate the fund",
+    ],
+  },
+  "EBIZ.L": {
+    shortDescription:
+      "Online retail and the companies that power it — Amazon, Shopify, MercadoLibre, Alibaba, JD.com, plus logistics and payments players. Closely tracks consumer-spending sentiment and tech mood.",
+    pros: [
+      "Captures the long shift from offline to online retail",
+      "Includes payments and logistics — not just retailers",
+      "Geographically diverse (US, China, Latin America)",
+    ],
+    cons: [
+      "Sensitive to consumer-confidence and recession risk",
+      "Margins are notoriously thin in e-commerce",
+      "Regulatory risk on Chinese platforms (Alibaba, JD)",
+    ],
+  },
+
   // ─── New themes (luxury, real estate, dividends) ──────────────────────
   "LUXG.L": {
     shortDescription:

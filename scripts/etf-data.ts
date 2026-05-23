@@ -974,6 +974,92 @@ export const seedEtfs: NewEtf[] = [
     tags: ["saudi", "middle-east", "emerging", "energy"],
   },
 
+  // ─── More thematics ────────────────────────────────────────────
+  {
+    ticker: "HEAL.L",
+    friendlyName: "Biotech & medical innovation",
+    name: "iShares Healthcare Innovation UCITS ETF",
+    shortDescription:
+      "Cutting-edge healthcare — companies working on gene editing, robotic surgery, AI drug discovery, personalized medicine. More speculative than the broad health-care fund (WHEA).",
+    longDescription:
+      "Tracks the iSTOXX FactSet Breakthrough Healthcare index. Holds smaller, more innovation-focused companies than mainstream healthcare ETFs. Includes biotech, gene therapy, surgical robotics, and diagnostic AI plays.",
+    category: "thematic",
+    subCategory: "biotech",
+    ter: "0.0040",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "USD",
+    riskScore: 5,
+    issuer: "iShares",
+    benchmark: "iSTOXX FactSet Breakthrough Healthcare",
+    tags: ["biotech", "healthcare", "innovation", "thematic"],
+  },
+  {
+    ticker: "YODA.L",
+    friendlyName: "Space economy",
+    name: "Procure Space UCITS ETF",
+    shortDescription:
+      "Companies that earn meaningful revenue from space — satellite operators (SES, Iridium), launch providers, defense aerospace, ground equipment. Mix of established names and small caps.",
+    longDescription:
+      "Tracks the S-Network Space Index. About half the fund is in companies where space is a primary business; the rest is broader aerospace/defense exposure. Concentrated and small in size — bigger price swings.",
+    category: "thematic",
+    subCategory: "space",
+    ter: "0.0075",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "USD",
+    riskScore: 5,
+    issuer: "Procure",
+    benchmark: "S-Network Space",
+    tags: ["space", "aerospace", "thematic", "innovation"],
+  },
+  {
+    ticker: "ESPO.L",
+    friendlyName: "Video games & esports",
+    name: "VanEck Video Gaming and eSports UCITS ETF",
+    shortDescription:
+      "The gaming industry in one fund — Nintendo, Activision, EA, Take-Two, Tencent, Roblox, Nvidia (graphics chips), and esports specialists. Cyclical with gaming hardware cycles.",
+    longDescription:
+      "Tracks the MVIS Global Video Gaming & eSports Index. Mix of game developers, publishers, streaming platforms, and hardware. Heavy in Japanese, US and Chinese gaming companies.",
+    category: "thematic",
+    subCategory: "gaming",
+    ter: "0.0055",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "USD",
+    riskScore: 5,
+    issuer: "VanEck",
+    benchmark: "MVIS Global Video Gaming & eSports",
+    tags: ["gaming", "esports", "entertainment", "thematic", "tech"],
+  },
+  {
+    ticker: "EBIZ.L",
+    friendlyName: "Online retail (e-commerce)",
+    name: "Global X E-commerce UCITS ETF",
+    shortDescription:
+      "Companies that sell online or power online selling — Amazon, Shopify, MercadoLibre, Alibaba, JD.com. Performance closely tied to consumer-spending and tech sentiment.",
+    longDescription:
+      "Tracks the Solactive E-commerce Logistics Performance Index. Includes online retailers, marketplaces, and the logistics/payments companies that enable them. Tech-adjacent with consumer-discretionary cyclicality.",
+    category: "thematic",
+    subCategory: "ecommerce",
+    ter: "0.0050",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "USD",
+    riskScore: 5,
+    issuer: "Global X",
+    benchmark: "Solactive E-commerce Logistics",
+    tags: ["ecommerce", "consumer", "tech", "thematic"],
+  },
+
   // ─── New themes (luxury, real estate, dividends) ───────────────
   {
     ticker: "LUXG.L",

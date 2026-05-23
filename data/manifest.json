@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-23T16:37:14.310Z",
-  "etfCount": 50,
-  "priceFileCount": 50,
+  "generatedAt": "2026-05-23T16:47:40.645Z",
+  "etfCount": 54,
+  "priceFileCount": 54,
   "tickers": [
     "AGGG.L",
     "CSPX.L",
@@ -39,6 +39,9 @@
     "WITS.L",
     "AGED.L",
     "DH2O.L",
+    "EBIZ.L",
+    "ESPO.L",
+    "HEAL.L",
     "INRG.L",
     "ISPY.L",
     "IWDP.L",
@@ -52,6 +55,7 @@
     "VHYL.L",
     "WCBR.L",
     "WCLD.L",
-    "WTAI.L"
+    "WTAI.L",
+    "YODA.L"
   ]
 }

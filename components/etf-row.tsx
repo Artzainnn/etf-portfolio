@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Star } from "lucide-react";
-import type { Etf } from "@/lib/db/schema";
 import { PriceChart, type PriceStats, type Period } from "./price-chart";
 import { PeriodStats } from "./period-stats";
 import { Sparkline } from "./sparkline";
 import { RiskBars } from "./risk-bars";
 import { isFavorite, toggleFavorite } from "@/lib/storage/favorites";
+import type { EtfWithPeriodData, PeriodKey } from "@/lib/data/etfs";
 import { getEtfEmoji } from "@/lib/data/emoji";
 
 function annualFeeLabel(ter: string | null): string {
@@ -17,31 +17,27 @@ function annualFeeLabel(ter: string | null): string {
   return `${pct.toFixed(2)}%`;
 }
 
-function parseSparkline(raw: string | null): number[] | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.every((v) => typeof v === "number")) {
-      return parsed;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-function formatReturn(pct: string | null): {
+function formatReturnNumber(pct: number | null | undefined): {
   text: string;
   positive: boolean | null;
 } {
-  if (pct == null) return { text: "—", positive: null };
-  const v = parseFloat(pct) * 100;
-  if (!isFinite(v)) return { text: "—", positive: null };
+  if (pct == null || !isFinite(pct)) return { text: "—", positive: null };
+  const v = pct * 100;
   return {
     text: `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`,
     positive: v >= 0,
   };
 }
+
+const PERIOD_SHORT_LABEL: Record<PeriodKey, string> = {
+  "1M": "past 1M",
+  "3M": "past 3M",
+  "6M": "past 6M",
+  "1Y": "past 1Y",
+  "3Y": "past 3Y",
+  "5Y": "past 5Y",
+  Max: "all-time",
+};
 
 const PERIODS: Period[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
 
@@ -55,14 +51,21 @@ function dividendInfo(isAcc: boolean | null): {
   return null;
 }
 
-export function EtfRow({ etf }: { etf: Etf }) {
+export function EtfRow({
+  etf,
+  previewPeriod = "1Y",
+}: {
+  etf: EtfWithPeriodData;
+  previewPeriod?: PeriodKey;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [period, setPeriod] = useState<Period>("1Y");
   const [stats, setStats] = useState<PriceStats | null>(null);
   const [fav, setFav] = useState(false);
   const emoji = getEtfEmoji(etf.ticker);
-  const sparkData = parseSparkline(etf.sparkline1Y);
-  const ret1y = formatReturn(etf.return1Y);
+  const sparkData = etf.periodSparklines?.[previewPeriod] ?? null;
+  const periodReturn = etf.periodReturns?.[previewPeriod] ?? null;
+  const retInfo = formatReturnNumber(periodReturn);
   const divInfo = dividendInfo(etf.isAccumulating);
 
   useEffect(() => {
@@ -81,10 +84,10 @@ export function EtfRow({ etf }: { etf: Etf }) {
     setFav(now);
   }
 
-  const ret1yCls =
-    ret1y.positive == null
+  const retCls =
+    retInfo.positive == null
       ? "text-zinc-400 dark:text-zinc-500"
-      : ret1y.positive
+      : retInfo.positive
         ? "text-emerald-600 dark:text-emerald-400"
         : "text-rose-600 dark:text-rose-400";
 
@@ -125,7 +128,7 @@ export function EtfRow({ etf }: { etf: Etf }) {
         </div>
 
         {/* Sparkline */}
-        {sparkData ? (
+        {sparkData && sparkData.length >= 2 ? (
           <div className="hidden shrink-0 sm:block">
             <Sparkline data={sparkData} width={100} height={32} />
           </div>
@@ -133,13 +136,13 @@ export function EtfRow({ etf }: { etf: Etf }) {
           <div className="hidden h-8 w-[100px] shrink-0 sm:block" />
         )}
 
-        {/* 1Y return */}
+        {/* Period return */}
         <div className="hidden w-[68px] shrink-0 text-right sm:block">
-          <div className={`text-sm font-semibold tabular-nums ${ret1yCls}`}>
-            {ret1y.text}
+          <div className={`text-sm font-semibold tabular-nums ${retCls}`}>
+            {retInfo.text}
           </div>
           <div className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-            past 1Y
+            {PERIOD_SHORT_LABEL[previewPeriod]}
           </div>
         </div>
 
