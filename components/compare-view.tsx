@@ -9,6 +9,7 @@ import {
   ComposedChart,
   Legend,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -243,7 +244,15 @@ function HistoryComparison({
     portfolioReturns: Record<string, number>;
     benchmarkReturn: number | null;
     earliestStart: string | null;
-    joinEvents: { id: string; ticker: string; date: string; name: string }[];
+    joinEvents: {
+      portfolioId: string;
+      portfolioName: string;
+      portfolioColor: string;
+      ticker: string;
+      date: string;
+      friendlyName: string;
+      percentage: number;
+    }[];
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -337,15 +346,20 @@ function HistoryComparison({
       for (const { portfolio, series } of valid) {
         portfolioReturns[portfolio.id] = series.totalReturn;
       }
-      // Collect all join events with their portfolio id
-      const joinEvents = valid.flatMap((s) =>
-        s.series.joinEvents.map((e) => ({
-          id: s.portfolio.id,
-          ticker: e.ticker,
-          date: e.date,
-          name: `${e.friendlyName} (in ${s.portfolio.name})`,
-        })),
-      );
+      // Collect all join events with their portfolio + sort by date
+      const joinEvents = valid
+        .flatMap((s) =>
+          s.series.joinEvents.map((e) => ({
+            portfolioId: s.portfolio.id,
+            portfolioName: s.portfolio.name,
+            portfolioColor: s.portfolio.color,
+            ticker: e.ticker,
+            date: e.date,
+            friendlyName: e.friendlyName,
+            percentage: e.percentage,
+          })),
+        )
+        .sort((a, b) => a.date.localeCompare(b.date));
 
       setChartData(combined);
       setResults({
@@ -403,6 +417,7 @@ function HistoryComparison({
             data={chartData}
             portfolios={portfolios}
             benchmarkLabel={benchmark || null}
+            joinEvents={results?.joinEvents ?? []}
           />
         )}
       </div>
@@ -432,8 +447,30 @@ function HistoryComparison({
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <div>
-            Some funds launched after the chart starts — their target weight
-            is spread across the rest of the portfolio until they exist.
+            <div>
+              Some funds launched after the chart starts. Their target weight
+              is spread across the rest of the portfolio until they exist
+              (markers on the chart show when each one joined).
+            </div>
+            <ul className="mt-2 space-y-0.5">
+              {results.joinEvents.map((e) => (
+                <li
+                  key={`${e.portfolioId}-${e.ticker}`}
+                  className="flex items-center gap-1.5"
+                >
+                  <span
+                    className="inline-block h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: e.portfolioColor }}
+                  />
+                  📍 <strong>{formatHumanDate(e.date)}</strong> —{" "}
+                  <em>{e.friendlyName}</em> joined{" "}
+                  <span className="font-medium">
+                    &quot;{e.portfolioName}&quot;
+                  </span>{" "}
+                  at {e.percentage}% weight
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
@@ -445,10 +482,17 @@ function HistoryChart({
   data,
   portfolios,
   benchmarkLabel,
+  joinEvents,
 }: {
   data: HistoryDatapoint[];
   portfolios: ResolvedPortfolio[];
   benchmarkLabel: string | null;
+  joinEvents: {
+    portfolioId: string;
+    portfolioColor: string;
+    ticker: string;
+    date: string;
+  }[];
 }) {
   // Flatten the nested values structure so Recharts can read them as dataKeys.
   const flat = data.map((d) => {
@@ -588,6 +632,22 @@ function HistoryChart({
             connectNulls
           />
         )}
+        {joinEvents.map((e) => (
+          <ReferenceLine
+            key={`${e.portfolioId}-${e.ticker}`}
+            x={e.date}
+            stroke={e.portfolioColor}
+            strokeDasharray="2 3"
+            strokeOpacity={0.6}
+            strokeWidth={1}
+            label={{
+              value: "📍",
+              position: "insideTopRight",
+              offset: 4,
+              style: { fontSize: 11 },
+            }}
+          />
+        ))}
         <Legend
           verticalAlign="top"
           height={20}
@@ -603,6 +663,15 @@ function HistoryChart({
       </ComposedChart>
     </ResponsiveContainer>
   );
+}
+
+function formatHumanDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 // ─── Projection comparison ──────────────────────────────────────────
