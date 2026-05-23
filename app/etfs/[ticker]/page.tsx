@@ -74,6 +74,58 @@ export default async function EtfDetailPage({
         <PlainStat label="Provider" value={etf.issuer ?? "—"} />
       </div>
 
+      {/* Pros & Cons */}
+      {(etf.pros?.length || etf.cons?.length) ? (
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {etf.pros && etf.pros.length > 0 && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+              <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                What's good
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {etf.pros.map((p, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm leading-relaxed text-zinc-800 dark:text-zinc-200"
+                  >
+                    <span
+                      className="mt-1 shrink-0 text-emerald-600 dark:text-emerald-400"
+                      aria-hidden
+                    >
+                      ✓
+                    </span>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {etf.cons && etf.cons.length > 0 && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-900/40 dark:bg-rose-950/20">
+              <div className="text-xs font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-400">
+                Watch out for
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {etf.cons.map((c, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm leading-relaxed text-zinc-800 dark:text-zinc-200"
+                  >
+                    <span
+                      className="mt-1 shrink-0 text-rose-600 dark:text-rose-400"
+                      aria-hidden
+                    >
+                      ✕
+                    </span>
+                    <span>{c}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {/* Chart */}
       <div className="mt-8">
         <EtfDetailChart ticker={etf.ticker} name={etf.name} />
