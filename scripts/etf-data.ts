@@ -974,6 +974,29 @@ export const seedEtfs: NewEtf[] = [
     tags: ["saudi", "middle-east", "emerging", "energy"],
   },
 
+  // ─── Chinese tech ──────────────────────────────────────────────
+  {
+    ticker: "HSTC.L",
+    friendlyName: "Chinese tech (Hang Seng Tech)",
+    name: "HSBC Hang Seng Tech UCITS ETF",
+    shortDescription:
+      "The Chinese tech giants in one fund — Tencent, Alibaba, Meituan, JD, Xiaomi, NetEase, Baidu, Kuaishou. All listed in Hong Kong. Highly cyclical and very sensitive to Chinese regulation.",
+    longDescription:
+      "Tracks the Hang Seng Tech Index — the 30 largest tech companies listed in Hong Kong, most of them Chinese. The 'Nasdaq of China' but with much higher regulatory and political risk. Has gone through major drawdowns (-70% from 2021 peak to 2022 trough).",
+    category: "thematic",
+    subCategory: "china_tech",
+    ter: "0.0050",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "GBP",
+    riskScore: 5,
+    issuer: "HSBC",
+    benchmark: "Hang Seng Tech",
+    tags: ["china", "tech", "hong-kong", "thematic", "tencent", "alibaba"],
+  },
+
   // ─── More thematics ────────────────────────────────────────────
   {
     ticker: "HEAL.L",

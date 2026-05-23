@@ -69,6 +69,7 @@ const ETF_EMOJIS: Record<string, string> = {
   "LUXG.L": "💎", // Luxury brands
   "IWDP.L": "🏢", // Real estate / REITs
   "VHYL.L": "💰", // High-dividend stocks
+  "HSTC.L": "🇨🇳", // Chinese tech
   "HEAL.L": "🧬", // Biotech / medical innovation
   "YODA.L": "🚀", // Space economy
   "ESPO.L": "🎮", // Video games / esports

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-23T16:47:40.645Z",
-  "etfCount": 54,
-  "priceFileCount": 54,
+  "generatedAt": "2026-05-23T17:04:38.294Z",
+  "etfCount": 55,
+  "priceFileCount": 55,
   "tickers": [
     "AGGG.L",
     "CSPX.L",
@@ -42,6 +42,7 @@
     "EBIZ.L",
     "ESPO.L",
     "HEAL.L",
+    "HSTC.L",
     "INRG.L",
     "ISPY.L",
     "IWDP.L",

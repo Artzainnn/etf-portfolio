@@ -15,6 +15,22 @@ export interface EtfEditorial {
 }
 
 export const EDITORIAL: Record<string, EtfEditorial> = {
+  // ─── Chinese tech ─────────────────────────────────────────────────────
+  "HSTC.L": {
+    shortDescription:
+      "The Chinese tech giants in one fund — Tencent (WeChat), Alibaba, Meituan, JD, Xiaomi, NetEase, Baidu, Kuaishou. All listed in Hong Kong. Very high upside potential, but Chinese regulators have repeatedly crushed these companies.",
+    pros: [
+      "Direct exposure to China's tech ecosystem",
+      "Cheap valuations after years of selloff",
+      "Big names you've heard of — Tencent, Alibaba, JD",
+    ],
+    cons: [
+      "Regulatory risk — Beijing can rewrite the rules overnight",
+      "Lost 70% from 2021 peak to 2022 trough",
+      "Geopolitical tension with US adds delisting risk",
+    ],
+  },
+
   // ─── More thematics ───────────────────────────────────────────────────
   "HEAL.L": {
     shortDescription:
