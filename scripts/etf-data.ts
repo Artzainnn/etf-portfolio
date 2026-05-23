@@ -974,6 +974,29 @@ export const seedEtfs: NewEtf[] = [
     tags: ["saudi", "middle-east", "emerging", "energy"],
   },
 
+  // ─── Defence alternative ───────────────────────────────────────
+  {
+    ticker: "DFNS.L",
+    friendlyName: "Defense industry (US-tilted)",
+    name: "VanEck Defense UCITS ETF",
+    shortDescription:
+      "The big defense contractors — Lockheed Martin, RTX, Northrop Grumman, General Dynamics, BAE Systems, Boeing, L3Harris. More US-concentrated than the HANetf alternative (NATO).",
+    longDescription:
+      "Tracks the MarketVector Global Defense Industry Index. Heavy in US prime contractors but includes major European defense names. Listed in March 2023, so it captured the post-Ukraine defense rally from near inception.",
+    category: "thematic",
+    subCategory: "defence",
+    ter: "0.0055",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "USD",
+    riskScore: 4,
+    issuer: "VanEck",
+    benchmark: "MarketVector Global Defense Industry",
+    tags: ["defence", "aerospace", "thematic", "us"],
+  },
+
   // ─── Chinese tech ──────────────────────────────────────────────
   {
     ticker: "HSTC.L",

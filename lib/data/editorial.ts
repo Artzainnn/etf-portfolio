@@ -15,6 +15,22 @@ export interface EtfEditorial {
 }
 
 export const EDITORIAL: Record<string, EtfEditorial> = {
+  // ─── Defense alternative ──────────────────────────────────────────────
+  "DFNS.L": {
+    shortDescription:
+      "The big defense contractors — Lockheed Martin, RTX, Northrop Grumman, General Dynamics, BAE Systems, Boeing, L3Harris. More US-tilted than the HANetf NATO fund. Listed in March 2023 so it caught the post-Ukraine rally early.",
+    pros: [
+      "Concentrated bet on the US defense primes",
+      "Riding the multi-year defense spending tailwind",
+      "Newer fund — caught defense rally from near inception",
+    ],
+    cons: [
+      "Heavily concentrated in a handful of names",
+      "Ethically controversial for some investors",
+      "Less geographically diverse than the NATO fund",
+    ],
+  },
+
   // ─── Chinese tech ─────────────────────────────────────────────────────
   "HSTC.L": {
     shortDescription:

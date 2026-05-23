@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-23T17:04:38.294Z",
-  "etfCount": 55,
-  "priceFileCount": 55,
+  "generatedAt": "2026-05-23T18:01:14.527Z",
+  "etfCount": 56,
+  "priceFileCount": 56,
   "tickers": [
     "AGGG.L",
     "CSPX.L",
@@ -38,6 +38,7 @@
     "WHEA.L",
     "WITS.L",
     "AGED.L",
+    "DFNS.L",
     "DH2O.L",
     "EBIZ.L",
     "ESPO.L",
