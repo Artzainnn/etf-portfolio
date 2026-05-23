@@ -1,19 +1,52 @@
 /**
- * Server-side data access for ETFs. Used by Server Components and Route Handlers.
+ * ETF data access. Reads from a static JSON snapshot bundled with the build
+ * (data/etfs.json). To refresh the snapshot:
+ *
+ *   npm run db:refresh-stats      # pull latest from Yahoo into local Postgres
+ *   npm run db:export-static      # dump local Postgres → data/etfs.json
+ *   git add data/ public/data/ && git commit && git push  # ships to Vercel
+ *
+ * The deployed app never touches the database.
  */
-import "server-only";
-import { db } from "@/lib/db/client";
-import { etfs } from "@/lib/db/schema";
-import { asc, eq } from "drizzle-orm";
+import etfsData from "@/data/etfs.json";
 import type { Etf } from "@/lib/db/schema";
 
+// JSON has dates as strings, decimals as strings — same shape the rest of the
+// app expects from the Drizzle row type, so this cast is safe.
+const ETFS = etfsData as unknown as Etf[];
+
+const CATEGORY_DISPLAY_ORDER = [
+  "broad_market",
+  "region",
+  "sector",
+  "thematic",
+  "bond",
+  "commodity",
+];
+
+function categoryRank(cat: string | null): number {
+  if (cat == null) return 99;
+  const i = CATEGORY_DISPLAY_ORDER.indexOf(cat);
+  return i === -1 ? 99 : i;
+}
+
+const ORDERED_ETFS = [...ETFS].sort((a, b) => {
+  const rA = categoryRank(a.category);
+  const rB = categoryRank(b.category);
+  if (rA !== rB) return rA - rB;
+  return (a.ticker ?? "").localeCompare(b.ticker ?? "");
+});
+
+const BY_TICKER: Map<string, Etf> = new Map(
+  ORDERED_ETFS.map((e) => [e.ticker, e]),
+);
+
 export async function listEtfs(): Promise<Etf[]> {
-  return db.select().from(etfs).orderBy(asc(etfs.category), asc(etfs.ticker));
+  return ORDERED_ETFS;
 }
 
 export async function getEtfByTicker(ticker: string): Promise<Etf | null> {
-  const rows = await db.select().from(etfs).where(eq(etfs.ticker, ticker)).limit(1);
-  return rows[0] ?? null;
+  return BY_TICKER.get(ticker) ?? null;
 }
 
 /** Categories in display order, with human-readable labels. */
@@ -26,22 +59,13 @@ export const CATEGORY_LABELS: Record<string, string> = {
   commodity: "Commodities",
 };
 
-export const CATEGORY_ORDER = [
-  "broad_market",
-  "region",
-  "sector",
-  "thematic",
-  "bond",
-  "commodity",
-];
+export const CATEGORY_ORDER = CATEGORY_DISPLAY_ORDER;
 
-/** Human-readable label for a risk score 1–5. */
 export function riskLabel(score: number | null): string {
   if (score == null) return "Unknown";
   return ["", "Very Low", "Low", "Medium", "High", "Very High"][score] ?? "Unknown";
 }
 
-/** Format a TER (stored as decimal 0.0007) as a percentage string ("0.07%"). */
 export function formatTer(ter: string | null): string {
   if (ter == null) return "—";
   const pct = parseFloat(ter) * 100;

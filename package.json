@@ -12,7 +12,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed-etfs.ts",
     "db:refresh-prices": "tsx scripts/refresh-prices.ts",
-    "db:refresh-stats": "tsx scripts/refresh-stats.ts"
+    "db:refresh-stats": "tsx scripts/refresh-stats.ts",
+    "db:export-static": "tsx scripts/export-static.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

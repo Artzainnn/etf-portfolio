@@ -5,7 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Loader2, Plus, Trash2, X } from "lucide-react";
 import type { Etf } from "@/lib/db/schema";
-import type { PortfolioWithAllocations } from "@/lib/data/portfolios";
+import {
+  getPortfolio,
+  updatePortfolio,
+  deletePortfolio,
+  type StoredPortfolio,
+} from "@/lib/storage/portfolios";
 import { getEtfEmoji } from "@/lib/data/emoji";
 import { SimulatorPanel } from "./simulator-panel";
 
@@ -17,7 +22,6 @@ interface AllocationState {
   name: string;
   riskScore: number | null;
   percentage: number;
-  /** Expected return as decimal (best estimate from 5Y, 3Y, or 1Y annualized). */
   expectedReturn: number | null;
 }
 
@@ -41,92 +45,107 @@ function bestExpectedReturn(etf: {
   return null;
 }
 
+function allocationStateFor(etf: Etf, percentage: number): AllocationState {
+  return {
+    etfId: etf.id,
+    ticker: etf.ticker,
+    emoji: getEtfEmoji(etf.ticker),
+    friendlyName: etf.friendlyName ?? etf.name,
+    name: etf.name,
+    riskScore: etf.riskScore,
+    percentage,
+    expectedReturn: bestExpectedReturn(etf),
+  };
+}
+
 export function PortfolioEditor({
-  portfolio,
+  portfolioId,
   allEtfs,
 }: {
-  portfolio: PortfolioWithAllocations;
+  portfolioId: string;
   allEtfs: Etf[];
 }) {
   const router = useRouter();
-
-  // Editable state
-  const [name, setName] = useState(portfolio.name);
-  const [description, setDescription] = useState(portfolio.description ?? "");
-  const [initialInvestment, setInitialInvestment] = useState(
-    parseFloat(portfolio.initialInvestment ?? "50000"),
-  );
-  const [monthlyContribution, setMonthlyContribution] = useState(
-    parseFloat(portfolio.monthlyContribution ?? "5000"),
-  );
-  const [durationYears, setDurationYears] = useState(
-    portfolio.durationYears ?? 10,
-  );
-  const [inflationRate, setInflationRate] = useState(
-    parseFloat(portfolio.inflationRate ?? "0.02"),
+  const etfsById = useMemo(
+    () => new Map(allEtfs.map((e) => [e.id, e])),
+    [allEtfs],
   );
 
-  const [allocations, setAllocations] = useState<AllocationState[]>(() =>
-    portfolio.allocations.map((a) => ({
-      etfId: a.etfId,
-      ticker: a.ticker,
-      emoji: getEtfEmoji(a.ticker),
-      friendlyName: a.friendlyName ?? a.name,
-      name: a.name,
-      riskScore: a.riskScore,
-      percentage: parseFloat(a.percentage),
-      expectedReturn: bestExpectedReturn(a),
-    })),
-  );
-
-  // Save status
+  const [loaded, setLoaded] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [initialInvestment, setInitialInvestment] = useState(50000);
+  const [monthlyContribution, setMonthlyContribution] = useState(5000);
+  const [durationYears, setDurationYears] = useState(10);
+  const [inflationRate, setInflationRate] = useState(0.02);
+  const [allocations, setAllocations] = useState<AllocationState[]>([]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  // Hydrate state from localStorage on mount
+  useEffect(() => {
+    const stored = getPortfolio(portfolioId);
+    if (!stored) {
+      setMissing(true);
+      setLoaded(true);
+      return;
+    }
+    setName(stored.name);
+    setDescription(stored.description ?? "");
+    setInitialInvestment(stored.initialInvestment);
+    setMonthlyContribution(stored.monthlyContribution);
+    setDurationYears(stored.durationYears);
+    setInflationRate(stored.inflationRate);
+    setAllocations(
+      stored.allocations
+        .map((a) => {
+          const etf = etfsById.get(a.etfId);
+          if (!etf) return null;
+          return allocationStateFor(etf, a.percentage);
+        })
+        .filter((a): a is AllocationState => a !== null),
+    );
+    setLoaded(true);
+  }, [portfolioId, etfsById]);
+
+  // Auto-save (debounced 500ms)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const skipFirstSaveRef = useRef(true);
-
-  // Debounced auto-save (1s after last change)
   useEffect(() => {
+    if (!loaded || missing) return;
     if (skipFirstSaveRef.current) {
       skipFirstSaveRef.current = false;
       return;
     }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-
-    saveTimerRef.current = setTimeout(async () => {
-      setSaveStatus("saving");
+    setSaveStatus("saving");
+    saveTimerRef.current = setTimeout(() => {
       try {
-        const res = await fetch(`/api/portfolios/${portfolio.id}`, {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            name,
-            description: description.trim() === "" ? null : description,
-            initialInvestment,
-            monthlyContribution,
-            durationYears,
-            inflationRate,
-            allocations: allocations.map((a) => ({
-              etfId: a.etfId,
-              percentage: a.percentage,
-            })),
-          }),
+        updatePortfolio(portfolioId, {
+          name,
+          description: description.trim() === "" ? null : description,
+          initialInvestment,
+          monthlyContribution,
+          durationYears,
+          inflationRate,
+          allocations: allocations.map((a) => ({
+            etfId: a.etfId,
+            percentage: a.percentage,
+          })),
         });
-        if (res.ok) {
-          setSaveStatus("saved");
-          setTimeout(() => setSaveStatus("idle"), 1500);
-        } else {
-          setSaveStatus("error");
-        }
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 1200);
       } catch {
         setSaveStatus("error");
       }
-    }, 1000);
-
+    }, 500);
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    loaded,
+    missing,
+    portfolioId,
     name,
     description,
     initialInvestment,
@@ -136,14 +155,15 @@ export function PortfolioEditor({
     allocations,
   ]);
 
-  // ─── Allocation handlers ─────────────────────────────────────────
   const totalAllocation = allocations.reduce((s, a) => s + a.percentage, 0);
   const inRange = totalAllocation >= 99 && totalAllocation <= 101;
 
   const setAllocationPct = useCallback((etfId: number, pct: number) => {
     setAllocations((prev) =>
       prev.map((a) =>
-        a.etfId === etfId ? { ...a, percentage: Math.max(0, Math.min(100, pct)) } : a,
+        a.etfId === etfId
+          ? { ...a, percentage: Math.max(0, Math.min(100, pct)) }
+          : a,
       ),
     );
   }, []);
@@ -152,28 +172,13 @@ export function PortfolioEditor({
     setAllocations((prev) => prev.filter((a) => a.etfId !== etfId));
   }, []);
 
-  const addAllocation = useCallback(
-    (etf: Etf) => {
-      setAllocations((prev) => {
-        if (prev.some((a) => a.etfId === etf.id)) return prev;
-        const defaultPct = prev.length === 0 ? 100 : 10;
-        return [
-          ...prev,
-          {
-            etfId: etf.id,
-            ticker: etf.ticker,
-            emoji: getEtfEmoji(etf.ticker),
-            friendlyName: etf.friendlyName ?? etf.name,
-            name: etf.name,
-            riskScore: etf.riskScore,
-            percentage: defaultPct,
-            expectedReturn: bestExpectedReturn(etf),
-          },
-        ];
-      });
-    },
-    [],
-  );
+  const addAllocation = useCallback((etf: Etf) => {
+    setAllocations((prev) => {
+      if (prev.some((a) => a.etfId === etf.id)) return prev;
+      const defaultPct = prev.length === 0 ? 100 : 10;
+      return [...prev, allocationStateFor(etf, defaultPct)];
+    });
+  }, []);
 
   const equalize = useCallback(() => {
     if (allocations.length === 0) return;
@@ -185,20 +190,44 @@ export function PortfolioEditor({
     if (totalAllocation === 0) return;
     const factor = 100 / totalAllocation;
     setAllocations((prev) =>
-      prev.map((a) => ({ ...a, percentage: +(a.percentage * factor).toFixed(2) })),
+      prev.map((a) => ({
+        ...a,
+        percentage: +(a.percentage * factor).toFixed(2),
+      })),
     );
   }, [totalAllocation]);
 
-  // ─── Delete portfolio ────────────────────────────────────────────
-  async function handleDelete() {
-    if (
-      !window.confirm(
-        `Delete "${name}"? This can't be undone.`,
-      )
-    )
-      return;
-    const res = await fetch(`/api/portfolios/${portfolio.id}`, { method: "DELETE" });
-    if (res.ok) router.push("/portfolios");
+  function handleDelete() {
+    if (!window.confirm(`Delete "${name}"? This can't be undone.`)) return;
+    deletePortfolio(portfolioId);
+    router.push("/portfolios");
+  }
+
+  if (!loaded) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 text-sm text-zinc-500">
+        Loading…
+      </div>
+    );
+  }
+
+  if (missing) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-12 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">Portfolio not found</h1>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          This portfolio doesn't exist on this browser. It may have been created
+          on another device.
+        </p>
+        <Link
+          href="/portfolios"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to portfolios
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -223,7 +252,6 @@ export function PortfolioEditor({
         </div>
       </div>
 
-      {/* Title row */}
       <div className="mt-4">
         <input
           type="text"
@@ -241,9 +269,7 @@ export function PortfolioEditor({
         />
       </div>
 
-      {/* Two-column layout */}
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        {/* Left: Composition */}
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
@@ -254,7 +280,6 @@ export function PortfolioEditor({
                 <button
                   onClick={equalize}
                   className="rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  title="Split equally between all funds"
                 >
                   Split equally
                 </button>
@@ -263,7 +288,6 @@ export function PortfolioEditor({
                 <button
                   onClick={rebalanceTo100}
                   className="rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  title="Scale all percentages so they total exactly 100%"
                 >
                   Rebalance to 100%
                 </button>
@@ -316,7 +340,6 @@ export function PortfolioEditor({
           )}
         </section>
 
-        {/* Right: Simulator */}
         <section>
           <SimulatorPanel
             allocations={allocations}
@@ -359,7 +382,7 @@ function SaveStatusBadge({
   }
   return (
     <span className="text-xs text-rose-600 dark:text-rose-400">
-      Save failed — your changes may not be persisted
+      Save failed
     </span>
   );
 }
@@ -396,7 +419,9 @@ function AllocationRow({
           step={0.5}
           className="w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-950"
         />
-        <span className="self-center text-xs text-zinc-500 dark:text-zinc-400">%</span>
+        <span className="self-center text-xs text-zinc-500 dark:text-zinc-400">
+          %
+        </span>
         <button
           onClick={onRemove}
           className="rounded-md p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
@@ -437,7 +462,13 @@ function AddEtfPicker({
       .filter((e) => !selectedIds.has(e.id))
       .filter((e) => {
         if (!q) return true;
-        const hay = [e.ticker, e.friendlyName, e.name, e.shortDescription, e.tags?.join(" ")]
+        const hay = [
+          e.ticker,
+          e.friendlyName,
+          e.name,
+          e.shortDescription,
+          e.tags?.join(" "),
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();

@@ -10,16 +10,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  getPriceSeries,
+  type Period as ClientPeriod,
+  type PriceStats as ClientPriceStats,
+} from "@/lib/marketData/clientPrices";
 
-export type Period = "1M" | "3M" | "6M" | "1Y" | "3Y" | "5Y" | "Max";
-
-export interface PriceStats {
-  totalReturn: number;
-  annualizedReturn: number | null;
-  maxDrawdown: number;
-  volatility: number | null;
-  periodYears: number;
-}
+export type Period = ClientPeriod;
+export type PriceStats = ClientPriceStats;
 
 export interface PricesResponse {
   ticker: string;
@@ -49,18 +47,27 @@ export function PriceChart({ ticker, period, variant = "compact", onStats }: Pro
     setLoading(true);
     setError(null);
 
-    fetch(`/api/etfs/${encodeURIComponent(ticker)}/prices?period=${period}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((json: PricesResponse) => {
+    getPriceSeries(ticker, period)
+      .then((result) => {
         if (cancelled) return;
-        setData(json);
+        if (!result) {
+          setError("No data");
+          setLoading(false);
+          onStats?.(null);
+          return;
+        }
+        setData({
+          ticker: result.ticker,
+          period,
+          nativeCurrency: result.nativeCurrency,
+          baseCurrency: result.baseCurrency,
+          points: result.points,
+          stats: result.stats,
+        });
         setLoading(false);
-        onStats?.(json.stats ?? null);
+        onStats?.(result.stats);
       })
-      .catch((e) => {
+      .catch((e: Error) => {
         if (cancelled) return;
         setError(e.message);
         setLoading(false);
