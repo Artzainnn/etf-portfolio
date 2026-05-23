@@ -111,3 +111,63 @@ export function deletePortfolio(id: string): boolean {
   writeAll(next);
   return true;
 }
+
+/**
+ * Serialize all portfolios into a JSON string suitable for downloading as
+ * a backup file. The shape includes a schema version + timestamp so future
+ * versions can detect and migrate older backups.
+ */
+const SCHEMA = "etfp:portfolios:v1";
+
+export function exportPortfoliosJson(): string {
+  return JSON.stringify(
+    {
+      schema: SCHEMA,
+      exportedAt: new Date().toISOString(),
+      portfolios: readAll(),
+    },
+    null,
+    2,
+  );
+}
+
+export interface ImportPreview {
+  fileCount: number;
+  currentCount: number;
+}
+
+/** Parse + validate a backup file. Returns the portfolios + a preview. */
+export function parseBackup(json: string): {
+  portfolios: StoredPortfolio[];
+  preview: ImportPreview;
+} {
+  const data = JSON.parse(json);
+  if (data?.schema !== SCHEMA || !Array.isArray(data.portfolios)) {
+    throw new Error("This doesn't look like a portfolio backup file.");
+  }
+  // Light shape check on each entry
+  for (const p of data.portfolios) {
+    if (
+      typeof p?.id !== "string" ||
+      typeof p?.name !== "string" ||
+      !Array.isArray(p.allocations)
+    ) {
+      throw new Error("Backup file is corrupted (one or more invalid entries).");
+    }
+  }
+  return {
+    portfolios: data.portfolios as StoredPortfolio[],
+    preview: {
+      fileCount: data.portfolios.length,
+      currentCount: readAll().length,
+    },
+  };
+}
+
+/**
+ * Replace all existing portfolios with the ones from the backup.
+ * Caller is responsible for any confirmation flow.
+ */
+export function restorePortfolios(portfolios: StoredPortfolio[]): void {
+  writeAll(portfolios);
+}
