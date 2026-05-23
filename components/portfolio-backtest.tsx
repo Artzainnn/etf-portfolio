@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -73,12 +74,19 @@ function priceAtOrBefore(
   return last;
 }
 
+interface JoinEvent {
+  date: string;
+  ticker: string;
+  friendlyName: string;
+  percentage: number;
+}
+
 interface BacktestResult {
   points: ChartPoint[];
   /** ISO date string from which the chart actually starts. */
   effectiveStart: string;
-  /** ETF that limits the coverage (youngest constituent), if any. */
-  limitingFund: { ticker: string; friendlyName: string; startDate: string } | null;
+  /** Each time a fund's data first appears within the chart range (after start). */
+  joinEvents: JoinEvent[];
   /** Total return over the chart range, portfolio. */
   portfolioReturn: number;
   /** Total return over the chart range, compare benchmark (null if no compare). */
@@ -136,27 +144,28 @@ export function PortfolioBacktest({
           return;
         }
 
-        // Common date range = intersection of all funds
-        let commonStart = "";
+        // For maximum coverage, use the EARLIEST first-date across all funds.
+        // The chart will extend back to that point even for funds that haven't
+        // launched yet — their target weight is reallocated pro-rata across
+        // the funds that do have data on each day.
+        let earliestStart = "";
         let commonEnd = "";
-        let limitingTicker = "";
-        for (const [ticker, points] of seriesMap) {
-          if (commonStart === "" || points[0].date > commonStart) {
-            commonStart = points[0].date;
-            limitingTicker = ticker;
+        for (const points of seriesMap.values()) {
+          if (earliestStart === "" || points[0].date < earliestStart) {
+            earliestStart = points[0].date;
           }
           const last = points[points.length - 1].date;
           if (commonEnd === "" || last < commonEnd) commonEnd = last;
         }
 
-        // Apply the requested period — but clamp to commonStart
+        // Apply the requested period — clamp to earliestStart (can't go before that)
         const days = PERIOD_DAYS[period];
         const lastDateMs = new Date(commonEnd).getTime();
         const requestedStart = days
           ? new Date(lastDateMs - days * 86400_000).toISOString().slice(0, 10)
           : "1990-01-01";
         const effectiveStart =
-          requestedStart > commonStart ? requestedStart : commonStart;
+          requestedStart > earliestStart ? requestedStart : earliestStart;
 
         // Pick a spine series — the longest one within the effective range
         let spine: SeriesPoint[] | null = null;
@@ -177,41 +186,76 @@ export function PortfolioBacktest({
           return;
         }
 
-        // Capture starting prices for each fund at effectiveStart
-        const startPrices = new Map<string, number>();
-        for (const [ticker, points] of seriesMap) {
-          const p = priceAtOrBefore(points, effectiveStart);
-          if (p != null && p > 0) startPrices.set(ticker, p);
+        // Determine join events — first time each fund has data within the range
+        const joinEvents: JoinEvent[] = [];
+        for (const a of activeAllocations) {
+          const series = seriesMap.get(a.ticker);
+          if (!series) continue;
+          const inception = series[0].date;
+          if (inception > effectiveStart && inception <= commonEnd) {
+            joinEvents.push({
+              date: inception,
+              ticker: a.ticker,
+              friendlyName: a.friendlyName,
+              percentage: a.percentage,
+            });
+          }
         }
+        joinEvents.sort((a, b) => a.date.localeCompare(b.date));
 
-        // Compute portfolio series — each day's daily return is the
-        // allocation-weighted sum of constituent daily returns
-        // (continuous rebalancing).
+        // Compute portfolio series with proportional reweighting:
+        // on each day, scale active weights so they sum to 100%.
+        // Funds that haven't launched yet aren't included that day.
         const portfolioPoints: { date: string; value: number }[] = [];
         let portfolioValue = 100;
-        const prevPrices = new Map<string, number>(startPrices);
+        const prevPrices = new Map<string, number>();
+
+        // Seed prevPrices for funds that have data at effectiveStart
+        for (const a of activeAllocations) {
+          const series = seriesMap.get(a.ticker);
+          if (!series) continue;
+          if (series[0].date <= spine[0].date) {
+            const p = priceAtOrBefore(series, spine[0].date);
+            if (p != null && p > 0) prevPrices.set(a.ticker, p);
+          }
+        }
         portfolioPoints.push({ date: spine[0].date, value: 100 });
 
         for (let i = 1; i < spine.length; i++) {
           const dateStr = spine[i].date;
-          let dailyReturn = 0;
-          let weightUsed = 0;
+
+          // Determine which funds are active (have launched) by this date
+          let activeWeightSum = 0;
+          const activeToday: { ticker: string; percentage: number }[] = [];
           for (const a of activeAllocations) {
             const series = seriesMap.get(a.ticker);
             if (!series) continue;
-            const today = priceAtOrBefore(series, dateStr);
-            const prev = prevPrices.get(a.ticker);
-            if (today != null && prev != null && prev > 0) {
-              const w = a.percentage / 100;
-              dailyReturn += w * (today / prev - 1);
-              weightUsed += w;
-              prevPrices.set(a.ticker, today);
+            if (series[0].date <= dateStr) {
+              activeToday.push(a);
+              activeWeightSum += a.percentage;
             }
           }
-          // If weights don't sum to 1 (some funds missing), normalise the
-          // return so the active weights count as 100%
-          if (weightUsed > 0 && Math.abs(weightUsed - totalWeight / 100) < 0.01) {
-            // Match the user's allocation weighting
+
+          if (activeToday.length === 0 || activeWeightSum === 0) {
+            portfolioPoints.push({ date: dateStr, value: portfolioValue });
+            continue;
+          }
+
+          let dailyReturn = 0;
+          for (const a of activeToday) {
+            const series = seriesMap.get(a.ticker)!;
+            const today = priceAtOrBefore(series, dateStr);
+            if (today == null || today <= 0) continue;
+            const prev = prevPrices.get(a.ticker);
+            if (prev == null) {
+              // Fund just joined — seed its price, no return today
+              prevPrices.set(a.ticker, today);
+              continue;
+            }
+            // Scale weight so active funds sum to 100%
+            const scaledWeight = a.percentage / activeWeightSum;
+            dailyReturn += scaledWeight * (today / prev - 1);
+            prevPrices.set(a.ticker, today);
           }
           portfolioValue *= 1 + dailyReturn;
           portfolioPoints.push({ date: dateStr, value: portfolioValue });
@@ -250,22 +294,10 @@ export function PortfolioBacktest({
 
         if (cancelled) return;
 
-        const limitingAlloc =
-          limitingTicker && commonStart > requestedStart
-            ? activeAllocations.find((a) => a.ticker === limitingTicker) ??
-              null
-            : null;
-
         setResult({
           points,
           effectiveStart,
-          limitingFund: limitingAlloc
-            ? {
-                ticker: limitingAlloc.ticker,
-                friendlyName: limitingAlloc.friendlyName,
-                startDate: commonStart,
-              }
-            : null,
+          joinEvents,
           portfolioReturn:
             portfolioPoints[portfolioPoints.length - 1].value / 100 - 1,
           compareReturn,
@@ -323,7 +355,11 @@ export function PortfolioBacktest({
               </div>
             </div>
           ) : (
-            <BacktestChart points={result.points} period={period} />
+            <BacktestChart
+              points={result.points}
+              period={period}
+              joinEvents={result.joinEvents}
+            />
           )}
         </div>
 
@@ -387,17 +423,25 @@ export function PortfolioBacktest({
         </div>
       )}
 
-      {/* Coverage note */}
-      {result?.limitingFund && (
+      {/* Coverage note — explains the join events */}
+      {result && result.joinEvents.length > 0 && (
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            Chart starts from{" "}
-            <strong>{formatHumanDate(result.limitingFund.startDate)}</strong>{" "}
-            because <em>{result.limitingFund.friendlyName}</em> only has data
-            from then. Pick a shorter period or remove that fund to see a
-            longer history.
-          </span>
+          <div>
+            <div>
+              Some funds launched after the chart starts. Their target weight
+              is spread across the rest of the portfolio until they exist
+              (markers on the chart show when each one joined).
+            </div>
+            <ul className="mt-2 space-y-0.5">
+              {result.joinEvents.map((e) => (
+                <li key={e.ticker}>
+                  📍 <strong>{formatHumanDate(e.date)}</strong> —{" "}
+                  <em>{e.friendlyName}</em> joined at {e.percentage}% weight
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
     </section>
@@ -407,9 +451,11 @@ export function PortfolioBacktest({
 function BacktestChart({
   points,
   period,
+  joinEvents,
 }: {
   points: ChartPoint[];
   period: Period;
+  joinEvents: JoinEvent[];
 }) {
   const lastPortfolio = points[points.length - 1].portfolio;
   const isPositive = lastPortfolio >= 100;
@@ -530,6 +576,21 @@ function BacktestChart({
           isAnimationActive={false}
           connectNulls
         />
+        {joinEvents.map((e) => (
+          <ReferenceLine
+            key={e.ticker}
+            x={e.date}
+            stroke="#71717a"
+            strokeDasharray="2 3"
+            strokeWidth={1}
+            label={{
+              value: "📍",
+              position: "insideTopRight",
+              offset: 4,
+              style: { fontSize: 11 },
+            }}
+          />
+        ))}
       </ComposedChart>
     </ResponsiveContainer>
   );
