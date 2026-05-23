@@ -88,6 +88,22 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
   const [period, setPeriod] = useState<PeriodKey>("1Y");
   const [activeDividends, setActiveDividends] = useState<string[]>([]);
 
+  // Max fee slider: max value across the list rounded up to 0.05%
+  const maxFeeAvailable = useMemo(() => {
+    let m = 0;
+    for (const e of etfs) {
+      const v = e.ter ? parseFloat(e.ter) : 0;
+      if (isFinite(v) && v > m) m = v;
+    }
+    return Math.ceil(m * 100 * 20) / 20; // round up to nearest 0.05%
+  }, [etfs]);
+  const [maxFee, setMaxFee] = useState<number>(maxFeeAvailable);
+
+  // Re-sync if the dataset's max changes (rare)
+  useEffect(() => {
+    setMaxFee(maxFeeAvailable);
+  }, [maxFeeAvailable]);
+
   useEffect(() => {
     setFavorites(new Set(listFavorites()));
     function onChange() {
@@ -135,6 +151,11 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
         else divKey = "none";
         if (!activeDividends.includes(divKey)) return false;
       }
+      // Max fee filter — TER is stored as decimal (0.0007 = 0.07%)
+      if (maxFee < maxFeeAvailable) {
+        const ter = e.ter ? parseFloat(e.ter) : null;
+        if (ter == null || ter * 100 > maxFee + 1e-6) return false;
+      }
       return true;
     });
 
@@ -164,7 +185,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
       );
     }
     return list;
-  }, [etfs, search, activeCategories, activeRisks, sort, favoritesOnly, favorites, period, activeDividends]);
+  }, [etfs, search, activeCategories, activeRisks, sort, favoritesOnly, favorites, period, activeDividends, maxFee, maxFeeAvailable]);
 
   const toggle =
     (set: string[], setSet: (v: string[]) => void) => (value: string) => {
@@ -179,6 +200,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
     setActiveRisks([]);
     setActiveDividends([]);
     setFavoritesOnly(false);
+    setMaxFee(maxFeeAvailable);
   };
 
   const hasFilters =
@@ -186,7 +208,8 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
     activeCategories.length > 0 ||
     activeRisks.length > 0 ||
     activeDividends.length > 0 ||
-    favoritesOnly;
+    favoritesOnly ||
+    maxFee < maxFeeAvailable;
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10">
@@ -271,6 +294,34 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
                 <span>{d.label}</span>
               </Chip>
             ))}
+          </div>
+        </div>
+
+        {/* Max fee slider */}
+        <div className="mt-4">
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Maximum annual fee
+            </span>
+            <span className="text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+              {maxFee >= maxFeeAvailable
+                ? "any fee"
+                : `≤ ${maxFee.toFixed(2)}% / year`}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0.05}
+            max={maxFeeAvailable}
+            step={0.05}
+            value={maxFee}
+            onChange={(e) => setMaxFee(parseFloat(e.target.value))}
+            className="w-full accent-zinc-900 dark:accent-zinc-100"
+            aria-label="Maximum annual fee"
+          />
+          <div className="mt-1 flex justify-between text-[10px] text-zinc-400 dark:text-zinc-500">
+            <span>0.05%</span>
+            <span>{maxFeeAvailable.toFixed(2)}%</span>
           </div>
         </div>
 
