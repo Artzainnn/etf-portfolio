@@ -18,6 +18,11 @@ export interface AllocationInput {
    * Annualised volatility (decimal). Optional — used only for Monte Carlo.
    */
   volatility?: number | null;
+  /**
+   * Total Expense Ratio (TER) as a decimal (e.g. 0.0025 = 0.25%/year).
+   * Used to compute the portfolio's weighted average fee.
+   */
+  ter?: number | null;
 }
 
 export interface ScenarioInputs {
@@ -155,6 +160,59 @@ export function allocationTotal(
   allocations: Pick<AllocationInput, "percentage">[],
 ): number {
   return allocations.reduce((sum, a) => sum + (a.percentage ?? 0), 0);
+}
+
+/**
+ * Weighted average annual fee across the allocation. Funds without a known
+ * TER are excluded from both numerator and denominator (so the result
+ * reflects the actual cost of the known-fee slice).
+ *
+ * Returns null if no allocation has a known TER.
+ */
+export function weightedAnnualFee(
+  allocations: Pick<AllocationInput, "percentage" | "ter">[],
+): number | null {
+  let weighted = 0;
+  let weightSum = 0;
+  for (const a of allocations) {
+    if (a.ter != null && a.percentage > 0) {
+      const w = a.percentage / 100;
+      weighted += w * a.ter;
+      weightSum += w;
+    }
+  }
+  if (weightSum === 0) return null;
+  return weighted / weightSum;
+}
+
+/**
+ * Estimate total fees paid over the holding horizon, in SGD.
+ * Uses the realistic projection path (75% of expected return) and applies
+ * the fee on the average portfolio value each year. This is the standard
+ * "annual fee × average AUM" approximation.
+ */
+export function totalFeesPaid(
+  inputs: ScenarioInputs,
+  annualFee: number,
+): number {
+  if (annualFee <= 0 || inputs.durationYears <= 0) return 0;
+  const realisticRate = inputs.expectedAnnualReturn * 0.75;
+  let value = inputs.initialInvestment;
+  let totalFees = 0;
+  for (let y = 1; y <= inputs.durationYears; y++) {
+    const startOfYear = value;
+    const grown = futureValue(
+      startOfYear,
+      inputs.monthlyContribution,
+      realisticRate,
+      1,
+    );
+    const endOfYear = grown;
+    const avg = (startOfYear + endOfYear) / 2;
+    totalFees += avg * annualFee;
+    value = endOfYear;
+  }
+  return totalFees;
 }
 
 /**

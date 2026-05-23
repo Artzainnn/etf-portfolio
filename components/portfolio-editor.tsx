@@ -15,6 +15,7 @@ import { getEtfEmoji } from "@/lib/data/emoji";
 import { listFavorites } from "@/lib/storage/favorites";
 import { SimulatorPanel } from "./simulator-panel";
 import { PortfolioBacktest } from "./portfolio-backtest";
+import { weightedAnnualFee } from "@/lib/simulation/calculator";
 
 interface AllocationState {
   etfId: number;
@@ -25,6 +26,8 @@ interface AllocationState {
   riskScore: number | null;
   percentage: number;
   expectedReturn: number | null;
+  /** Annual fee as decimal (e.g. 0.0025 = 0.25%/year). */
+  ter: number | null;
 }
 
 function bestExpectedReturn(etf: {
@@ -57,6 +60,7 @@ function allocationStateFor(etf: Etf, percentage: number): AllocationState {
     riskScore: etf.riskScore,
     percentage,
     expectedReturn: bestExpectedReturn(etf),
+    ter: etf.ter ? parseFloat(etf.ter) : null,
   };
 }
 
@@ -402,6 +406,70 @@ export function PortfolioEditor({
               </span>
             </div>
           )}
+
+          {/* Weighted fee summary */}
+          {allocations.length > 0 &&
+            (() => {
+              const avgFee = weightedAnnualFee(
+                allocations.map((a) => ({
+                  percentage: a.percentage,
+                  ter: a.ter,
+                })),
+              );
+              if (avgFee == null) return null;
+              const feePct = avgFee * 100;
+              const yearlyOnStart =
+                initialInvestment > 0 ? initialInvestment * avgFee : 0;
+              const fmt = (v: number) =>
+                v.toLocaleString("en-SG", {
+                  style: "currency",
+                  currency: "SGD",
+                  maximumFractionDigits: 0,
+                });
+              return (
+                <div className="mt-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Average annual fee
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      {feePct.toFixed(2)}%
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Weighted across your funds. On your starting amount that's
+                    roughly{" "}
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                      {fmt(yearlyOnStart)}
+                    </span>{" "}
+                    per year (grows as the portfolio grows).
+                  </p>
+                  {/* Per-fund breakdown */}
+                  <div className="mt-3 space-y-1 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+                    {allocations
+                      .filter((a) => a.percentage > 0)
+                      .map((a) => (
+                        <div
+                          key={a.etfId}
+                          className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400"
+                        >
+                          <span className="truncate">
+                            <span aria-hidden className="mr-1">
+                              {a.emoji}
+                            </span>
+                            {a.friendlyName}
+                          </span>
+                          <span className="tabular-nums">
+                            {a.ter != null
+                              ? `${(a.ter * 100).toFixed(2)}%`
+                              : "—"}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              );
+            })()}
         </section>
 
         <section>

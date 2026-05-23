@@ -18,6 +18,8 @@ import {
   allocationTotal,
   formatMoney,
   projectScenarios,
+  totalFeesPaid,
+  weightedAnnualFee,
   weightedReturn,
   type AllocationInput,
 } from "@/lib/simulation/calculator";
@@ -54,6 +56,7 @@ export function SimulatorPanel(props: Props) {
 
   const total = allocationTotal(allocations);
   const weightedR = useMemo(() => weightedReturn(allocations), [allocations]);
+  const avgFee = useMemo(() => weightedAnnualFee(allocations), [allocations]);
 
   const canSimulate = total > 0 && weightedR != null;
 
@@ -82,6 +85,29 @@ export function SimulatorPanel(props: Props) {
   const contributed = final?.contributed ?? 0;
   const realisticGains = realistic - contributed;
   const realisticReal = final?.realisticReal ?? 0;
+
+  const feesPaid = useMemo(() => {
+    if (!canSimulate || weightedR == null || avgFee == null || avgFee <= 0)
+      return null;
+    return totalFeesPaid(
+      {
+        initialInvestment,
+        monthlyContribution,
+        durationYears,
+        expectedAnnualReturn: weightedR,
+        inflationRate,
+      },
+      avgFee,
+    );
+  }, [
+    canSimulate,
+    weightedR,
+    avgFee,
+    initialInvestment,
+    monthlyContribution,
+    durationYears,
+    inflationRate,
+  ]);
 
   return (
     <div>
@@ -197,6 +223,22 @@ export function SimulatorPanel(props: Props) {
                 hint="If returns are half the historical pace"
               />
             </div>
+
+            {/* Fees impact */}
+            {avgFee != null && feesPaid != null && (
+              <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 text-xs dark:border-zinc-800">
+                <Tile
+                  label="Avg annual fee"
+                  value={`${(avgFee * 100).toFixed(2)}%`}
+                  hint="Weighted across your allocation"
+                />
+                <Tile
+                  label={`Estimated total fees over ${durationYears}y`}
+                  value={formatMoney(feesPaid)}
+                  hint={`Compounding fee drag — calculated as the average portfolio value each year × ${(avgFee * 100).toFixed(2)}%`}
+                />
+              </div>
+            )}
           </div>
 
           {/* Projection chart */}
