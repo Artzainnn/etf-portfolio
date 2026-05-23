@@ -204,6 +204,46 @@ export function PortfolioEditor({
     router.push("/portfolios");
   }
 
+  // ─── Copy as markdown ────────────────────────────────────────────
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
+
+  function buildCopyText(): string {
+    const fmtSgd = (v: number) =>
+      `SGD ${v.toLocaleString("en-SG", { maximumFractionDigits: 0 })}`;
+    const lines: string[] = [];
+    lines.push(`**${name}**`);
+    if (description.trim()) lines.push(description.trim());
+    lines.push("");
+    lines.push(
+      `${fmtSgd(initialInvestment)} initial · ${fmtSgd(monthlyContribution)}/month · ${durationYears} years`,
+    );
+    lines.push("");
+    if (allocations.length === 0) {
+      lines.push("_(no funds added yet)_");
+    } else {
+      lines.push("| Fund | Ticker | Allocation |");
+      lines.push("|---|---|---|");
+      for (const a of allocations) {
+        lines.push(
+          `| ${a.emoji} ${a.friendlyName} | ${a.ticker} | ${a.percentage}% |`,
+        );
+      }
+      lines.push("");
+      lines.push(`**Total:** ${totalAllocation.toFixed(1)}%`);
+    }
+    return lines.join("\n");
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(buildCopyText());
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (e) {
+      console.error("Clipboard write failed:", e);
+    }
+  }
+
   if (!loaded) {
     return (
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 text-sm text-zinc-500">
