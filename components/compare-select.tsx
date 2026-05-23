@@ -1,10 +1,17 @@
 "use client";
 
 import { COMPARE_BENCHMARKS } from "@/lib/data/benchmarks";
+import { ALL_ETFS_SYNC } from "@/lib/data/etfs";
+import { getEtfEmoji } from "@/lib/data/emoji";
 
 /**
- * Compact dropdown for picking a benchmark to overlay on a chart.
- * The "Off" option (empty string) disables comparison.
+ * Dropdown for picking a benchmark to overlay on a chart.
+ *
+ * Layout:
+ *   - "— Off" at top to disable comparison
+ *   - "Common benchmarks" group: the curated short-list
+ *   - "All other funds" group: the rest of the dataset (alphabetical
+ *     within each category bucket already established in the data layer)
  */
 export function CompareSelect({
   value,
@@ -18,6 +25,11 @@ export function CompareSelect({
   excludeTicker?: string;
   className?: string;
 }) {
+  const benchmarkTickers = new Set(COMPARE_BENCHMARKS.map((b) => b.ticker));
+  const otherEtfs = ALL_ETFS_SYNC.filter(
+    (e) => e.ticker !== excludeTicker && !benchmarkTickers.has(e.ticker),
+  );
+
   return (
     <select
       value={value}
@@ -26,11 +38,24 @@ export function CompareSelect({
       aria-label="Compare with benchmark"
     >
       <option value="">— Off</option>
-      {COMPARE_BENCHMARKS.filter((b) => b.ticker !== excludeTicker).map((b) => (
-        <option key={b.ticker} value={b.ticker}>
-          {b.label}
-        </option>
-      ))}
+      <optgroup label="Common benchmarks">
+        {COMPARE_BENCHMARKS.filter((b) => b.ticker !== excludeTicker).map(
+          (b) => (
+            <option key={b.ticker} value={b.ticker}>
+              {b.label}
+            </option>
+          ),
+        )}
+      </optgroup>
+      {otherEtfs.length > 0 && (
+        <optgroup label="All other funds">
+          {otherEtfs.map((e) => (
+            <option key={e.ticker} value={e.ticker}>
+              {getEtfEmoji(e.ticker)} {e.friendlyName ?? e.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
     </select>
   );
 }

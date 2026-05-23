@@ -65,6 +65,9 @@ export async function listEtfs(): Promise<EtfWithPeriodData[]> {
   return ORDERED_ETFS;
 }
 
+/** Synchronous accessor — safe to use from client components. */
+export const ALL_ETFS_SYNC: EtfWithPeriodData[] = ORDERED_ETFS;
+
 export async function getEtfByTicker(
   ticker: string,
 ): Promise<EtfWithPeriodData | null> {

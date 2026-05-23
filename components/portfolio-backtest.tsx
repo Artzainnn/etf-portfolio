@@ -261,18 +261,31 @@ export function PortfolioBacktest({
           portfolioPoints.push({ date: dateStr, value: portfolioValue });
         }
 
-        // Compare benchmark series, normalised to 100 at effectiveStart
+        // Compare benchmark series, normalised to 100 at the first date
+        // where BOTH series have data. If the benchmark starts later than
+        // the portfolio's chart start, the compare line begins mid-chart
+        // at 100 (still useful — shows how the benchmark has fared since
+        // it became available).
         let compareSeries: Map<string, number> | null = null;
         let compareReturn: number | null = null;
         if (compare) {
           const compareRaw = await getRawSeries(compare);
           if (compareRaw?.points && compareRaw.points.length >= 2) {
-            const baseline = priceAtOrBefore(compareRaw.points, effectiveStart);
-            if (baseline != null && baseline > 0) {
+            // Find baseline: first compare point at or after effectiveStart
+            let baseline: number | null = null;
+            let baselineIdx = -1;
+            for (let i = 0; i < compareRaw.points.length; i++) {
+              if (compareRaw.points[i].date >= effectiveStart) {
+                baseline = compareRaw.points[i].sgd;
+                baselineIdx = i;
+                break;
+              }
+            }
+            if (baseline != null && baseline > 0 && baselineIdx >= 0) {
               compareSeries = new Map();
-              for (const point of compareRaw.points) {
-                if (point.date < effectiveStart || point.date > commonEnd)
-                  continue;
+              for (let i = baselineIdx; i < compareRaw.points.length; i++) {
+                const point = compareRaw.points[i];
+                if (point.date > commonEnd) break;
                 compareSeries.set(point.date, (point.sgd / baseline) * 100);
               }
               const lastCompareValue = compareSeries.get(
