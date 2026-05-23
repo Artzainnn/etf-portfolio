@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Download, Plus, Trash2, Upload, Wallet } from "lucide-react";
+import { Copy, Download, Plus, Trash2, Upload, Wallet } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   listPortfolios,
   createPortfolio,
   deletePortfolio,
+  duplicatePortfolio,
   exportPortfoliosJson,
   parseBackup,
   restorePortfolios,
@@ -49,6 +50,11 @@ export function PortfoliosIndex() {
     if (!window.confirm(`Delete "${name}"? This can't be undone.`)) return;
     deletePortfolio(id);
     refresh();
+  }
+
+  function handleDuplicate(id: string) {
+    const copy = duplicatePortfolio(id);
+    if (copy) router.push(`/portfolios/${copy.id}`);
   }
 
   function handleExport() {
@@ -235,6 +241,14 @@ export function PortfoliosIndex() {
                   )}
                 </div>
               </Link>
+              <button
+                onClick={() => handleDuplicate(p.id)}
+                className="rounded-md p-2 text-zinc-400 opacity-0 transition-opacity hover:bg-zinc-100 hover:text-zinc-700 group-hover:opacity-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                aria-label={`Duplicate ${p.name}`}
+                title="Duplicate portfolio"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
               <button
                 onClick={() => handleDelete(p.id, p.name)}
                 className="rounded-md p-2 text-zinc-400 opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"

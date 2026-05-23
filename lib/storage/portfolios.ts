@@ -113,6 +113,29 @@ export function deletePortfolio(id: string): boolean {
 }
 
 /**
+ * Make a copy of an existing portfolio with a new id and a "(copy)" suffix.
+ * Returns the new portfolio, or null if the source doesn't exist.
+ */
+export function duplicatePortfolio(id: string): StoredPortfolio | null {
+  const source = getPortfolio(id);
+  if (!source) return null;
+  const now = new Date().toISOString();
+  const copy: StoredPortfolio = {
+    ...source,
+    id: newId(),
+    name: `${source.name} (copy)`,
+    createdAt: now,
+    updatedAt: now,
+    // Deep-copy allocations so editing the copy doesn't mutate the original
+    allocations: source.allocations.map((a) => ({ ...a })),
+  };
+  const all = readAll();
+  all.push(copy);
+  writeAll(all);
+  return copy;
+}
+
+/**
  * Serialize all portfolios into a JSON string suitable for downloading as
  * a backup file. The shape includes a schema version + timestamp so future
  * versions can detect and migrate older backups.
