@@ -1,0 +1,183 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronDown } from "lucide-react";
+import type { Etf } from "@/lib/db/schema";
+import { PriceChart, type PriceStats, type Period } from "./price-chart";
+import { PeriodStats } from "./period-stats";
+import { Sparkline } from "./sparkline";
+import { RiskBars } from "./risk-bars";
+import { getEtfEmoji } from "@/lib/data/emoji";
+
+function annualFeeLabel(ter: string | null): string {
+  if (!ter) return "—";
+  const pct = parseFloat(ter) * 100;
+  return `${pct.toFixed(2)}%`;
+}
+
+function parseSparkline(raw: string | null): number[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((v) => typeof v === "number")) {
+      return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function formatReturn(pct: string | null): {
+  text: string;
+  positive: boolean | null;
+} {
+  if (pct == null) return { text: "—", positive: null };
+  const v = parseFloat(pct) * 100;
+  if (!isFinite(v)) return { text: "—", positive: null };
+  return {
+    text: `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`,
+    positive: v >= 0,
+  };
+}
+
+const PERIODS: Period[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
+
+export function EtfRow({ etf }: { etf: Etf }) {
+  const [expanded, setExpanded] = useState(false);
+  const [period, setPeriod] = useState<Period>("1Y");
+  const [stats, setStats] = useState<PriceStats | null>(null);
+  const emoji = getEtfEmoji(etf.ticker);
+  const sparkData = parseSparkline(etf.sparkline1Y);
+  const ret1y = formatReturn(etf.return1Y);
+
+  const ret1yCls =
+    ret1y.positive == null
+      ? "text-zinc-400 dark:text-zinc-500"
+      : ret1y.positive
+        ? "text-emerald-600 dark:text-emerald-400"
+        : "text-rose-600 dark:text-rose-400";
+
+  return (
+    <li>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-5 px-6 py-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+        aria-expanded={expanded}
+      >
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${
+            expanded ? "rotate-180" : ""
+          }`}
+        />
+
+        {/* Name + geo·description */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[15px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
+            <span className="shrink-0 text-lg leading-none" aria-hidden>
+              {emoji}
+            </span>
+            <span className="truncate">{etf.friendlyName ?? etf.name}</span>
+          </div>
+          {etf.shortDescription && (
+            <div className="mt-1.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+              {etf.shortDescription}
+            </div>
+          )}
+        </div>
+
+        {/* Sparkline */}
+        {sparkData ? (
+          <div className="hidden shrink-0 sm:block">
+            <Sparkline data={sparkData} width={100} height={32} />
+          </div>
+        ) : (
+          <div className="hidden h-8 w-[100px] shrink-0 sm:block" />
+        )}
+
+        {/* 1Y return */}
+        <div className="hidden w-[68px] shrink-0 text-right sm:block">
+          <div className={`text-sm font-semibold tabular-nums ${ret1yCls}`}>
+            {ret1y.text}
+          </div>
+          <div className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            past 1Y
+          </div>
+        </div>
+
+        {/* Risk bars */}
+        <div className="hidden w-7 shrink-0 items-center justify-center md:flex">
+          <RiskBars score={etf.riskScore} />
+        </div>
+
+        {/* Fee */}
+        <div className="hidden w-[58px] shrink-0 text-right md:block">
+          <div className="text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+            {annualFeeLabel(etf.ter)}
+          </div>
+          <div className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            fee/yr
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-zinc-100 bg-zinc-50/70 px-6 pb-6 pt-5 dark:border-zinc-800 dark:bg-zinc-950/40">
+          {/* Official fund name (revealed on expand) */}
+          <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
+            <span className="font-medium text-zinc-600 dark:text-zinc-400">
+              {etf.name}
+            </span>
+            <span className="font-mono text-zinc-400 dark:text-zinc-500">
+              {etf.ticker}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_120px]">
+            <PriceChart
+              ticker={etf.ticker}
+              period={period}
+              variant="compact"
+              onStats={setStats}
+            />
+
+            <div>
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                Time period
+              </div>
+              <div className="flex flex-wrap gap-1 lg:flex-col">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors lg:text-left ${
+                      period === p
+                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                        : "text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <PeriodStats period={period} stats={stats} size="compact" />
+          </div>
+
+          <div className="mt-5">
+            <Link
+              href={`/etfs/${encodeURIComponent(etf.ticker)}`}
+              className="text-xs font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+            >
+              See all details →
+            </Link>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
