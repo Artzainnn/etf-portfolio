@@ -65,6 +65,11 @@ const ETF_EMOJIS: Record<string, string> = {
   // ─── Bonds ─────────────────────────────────────────────────────
   "AGGG.L": "🛡️", // Defensive bonds
 
+  // ─── Sustainable / SRI ─────────────────────────────────────────
+  "SUSW.L": "🌱", // World SRI
+  "SUUS.L": "🌱", // US SRI
+  "SUSM.L": "🌱", // Emerging markets SRI
+
   // ─── Additional emerging-market regions ────────────────────────
   "CSKR.L": "🇰🇷", // Korea
   "XMTW.L": "🇹🇼", // Taiwan

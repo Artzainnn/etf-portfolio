@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-23T12:40:14.400Z",
-  "etfCount": 44,
-  "priceFileCount": 44,
+  "generatedAt": "2026-05-23T16:09:29.162Z",
+  "etfCount": 47,
+  "priceFileCount": 47,
   "tickers": [
     "AGGG.L",
     "CSPX.L",
@@ -9,6 +9,9 @@
     "EMXC.L",
     "IWDA.L",
     "SSAC.L",
+    "SUSM.L",
+    "SUSW.L",
+    "SUUS.L",
     "SWRD.L",
     "VWCE.DE",
     "SGLN.L",

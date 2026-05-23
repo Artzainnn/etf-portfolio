@@ -57,6 +57,8 @@ async function main() {
           issuer: etf.issuer ?? null,
           benchmark: etf.benchmark ?? null,
           tags: etf.tags ?? null,
+          pros: etf.pros ?? null,
+          cons: etf.cons ?? null,
           updatedAt: sql`NOW()`,
         },
       })

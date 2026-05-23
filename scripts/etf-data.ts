@@ -974,6 +974,71 @@ export const seedEtfs: NewEtf[] = [
     tags: ["saudi", "middle-east", "emerging", "energy"],
   },
 
+  // ─── Sustainable / SRI ─────────────────────────────────────────
+  {
+    ticker: "SUSW.L",
+    friendlyName: "Sustainable global stocks",
+    name: "iShares MSCI World SRI UCITS ETF EUR (Acc)",
+    shortDescription:
+      "Same global developed-world exposure as MSCI World, but screens out tobacco, weapons, gambling, fossil fuels, and low-ESG-rated companies — keeping only the best-in-class.",
+    longDescription:
+      "Tracks the MSCI World SRI Select Reduced Fossil Fuels index. Excludes companies in tobacco, controversial weapons, gambling, alcohol, adult entertainment, fossil fuels, and those with low ESG ratings. About 400 companies remain (vs 1,500 in MSCI World).",
+    category: "broad_market",
+    subCategory: "world_sri",
+    ter: "0.0020",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "EUR",
+    riskScore: 3,
+    issuer: "iShares",
+    benchmark: "MSCI World SRI Select Reduced Fossil Fuels",
+    tags: ["world", "developed", "esg", "sri", "sustainable"],
+  },
+  {
+    ticker: "SUUS.L",
+    friendlyName: "Sustainable US stocks",
+    name: "iShares MSCI USA SRI UCITS ETF",
+    shortDescription:
+      "The 'ethical S&P 500' equivalent — same US large-cap exposure but excludes weapons, tobacco, fossil fuels, and low-ESG-rated companies.",
+    longDescription:
+      "Tracks MSCI USA SRI Select Reduced Fossil Fuels — best-in-class US companies after applying ESG screens. Fewer holdings than CSPX.L, with no oil majors or weapons makers.",
+    category: "broad_market",
+    subCategory: "us_sri",
+    ter: "0.0020",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "GBp",
+    riskScore: 3,
+    issuer: "iShares",
+    benchmark: "MSCI USA SRI Select Reduced Fossil Fuels",
+    tags: ["us", "esg", "sri", "sustainable"],
+  },
+  {
+    ticker: "SUSM.L",
+    friendlyName: "Sustainable emerging-market stocks",
+    name: "iShares MSCI EM SRI UCITS ETF USD (Acc)",
+    shortDescription:
+      "Emerging-market exposure with the same ESG screen — excludes Aramco, PetroChina, weapons makers, tobacco, and the worst-rated ESG companies.",
+    longDescription:
+      "Tracks MSCI EM SRI Select Reduced Fossil Fuels. Roughly 200 companies (vs 3,000 in broad EM) after screens. Tech and consumer-staples heavy since fossil-fuel-heavy markets like Russia and Saudi Aramco are largely excluded.",
+    category: "broad_market",
+    subCategory: "emerging_markets_sri",
+    ter: "0.0035",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "USD",
+    riskScore: 4,
+    issuer: "iShares",
+    benchmark: "MSCI EM SRI Select Reduced Fossil Fuels",
+    tags: ["emerging", "esg", "sri", "sustainable"],
+  },
+
   // ─── Bonds ──────────────────────────────────────────────────────────────
   {
     ticker: "AGGG.L",

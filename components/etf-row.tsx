@@ -72,7 +72,7 @@ export function EtfRow({ etf }: { etf: Etf }) {
           }`}
         />
 
-        {/* Name + geo·description */}
+        {/* Name + description */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[15px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
             <span className="shrink-0 text-lg leading-none" aria-hidden>
@@ -81,9 +81,9 @@ export function EtfRow({ etf }: { etf: Etf }) {
             <span className="truncate">{etf.friendlyName ?? etf.name}</span>
           </div>
           {etf.shortDescription && (
-            <div className="mt-1.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
               {etf.shortDescription}
-            </div>
+            </p>
           )}
         </div>
 
@@ -167,6 +167,52 @@ export function EtfRow({ etf }: { etf: Etf }) {
           <div className="mt-5">
             <PeriodStats period={period} stats={stats} size="compact" />
           </div>
+
+          {/* Pros & Cons */}
+          {(etf.pros?.length || etf.cons?.length) ? (
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {etf.pros && etf.pros.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                    What's good
+                  </div>
+                  <ul className="space-y-1.5">
+                    {etf.pros.map((p, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300"
+                      >
+                        <span className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden>
+                          ✓
+                        </span>
+                        <span>{p}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {etf.cons && etf.cons.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-400">
+                    Watch out for
+                  </div>
+                  <ul className="space-y-1.5">
+                    {etf.cons.map((c, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300"
+                      >
+                        <span className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden>
+                          ✕
+                        </span>
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : null}
 
           <div className="mt-5">
             <Link

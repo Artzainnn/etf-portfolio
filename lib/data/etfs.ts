@@ -10,10 +10,25 @@
  */
 import etfsData from "@/data/etfs.json";
 import type { Etf } from "@/lib/db/schema";
+import { EDITORIAL } from "@/lib/data/editorial";
 
 // JSON has dates as strings, decimals as strings — same shape the rest of the
 // app expects from the Drizzle row type, so this cast is safe.
-const ETFS = etfsData as unknown as Etf[];
+const RAW_ETFS = etfsData as unknown as Etf[];
+
+// Merge in beginner-friendly editorial content (shortDescription rewrite,
+// pros, cons) keyed by ticker. Editorial values override any DB-stored
+// shortDescription / pros / cons.
+const ETFS: Etf[] = RAW_ETFS.map((etf) => {
+  const editorial = EDITORIAL[etf.ticker];
+  if (!editorial) return etf;
+  return {
+    ...etf,
+    shortDescription: editorial.shortDescription,
+    pros: editorial.pros,
+    cons: editorial.cons,
+  };
+});
 
 const CATEGORY_DISPLAY_ORDER = [
   "broad_market",

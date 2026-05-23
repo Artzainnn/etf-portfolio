@@ -47,6 +47,9 @@ export const etfs = pgTable(
     issuer: varchar("issuer", { length: 50 }),
     benchmark: varchar("benchmark", { length: 255 }),
     tags: text("tags").array(),
+    // Beginner-friendly pros / cons shown in the expanded row.
+    pros: text("pros").array(),
+    cons: text("cons").array(),
     // Pre-computed performance stats (refreshed by scripts/refresh-stats.ts).
     // Returns are stored as decimal fractions (e.g. 0.1234 = +12.34%).
     return1Y: decimal("return_1y", { precision: 7, scale: 4 }),
