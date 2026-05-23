@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Loader2, Plus, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, Loader2, Plus, Star, Trash2, X } from "lucide-react";
 import type { Etf } from "@/lib/db/schema";
 import {
   getPortfolio,
@@ -244,6 +244,28 @@ export function PortfolioEditor({
         </Link>
         <div className="flex items-center gap-3">
           <SaveStatusBadge status={saveStatus} />
+          <button
+            onClick={handleCopy}
+            disabled={allocations.length === 0}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              copyStatus === "copied"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : "border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+            title="Copy portfolio as a markdown table"
+          >
+            {copyStatus === "copied" ? (
+              <>
+                <Check className="h-3.5 w-3.5" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5" />
+                Copy
+              </>
+            )}
+          </button>
           <button
             onClick={handleDelete}
             className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
