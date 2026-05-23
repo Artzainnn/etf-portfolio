@@ -15,6 +15,50 @@ export interface EtfEditorial {
 }
 
 export const EDITORIAL: Record<string, EtfEditorial> = {
+  // ─── New themes (luxury, real estate, dividends) ──────────────────────
+  "LUXG.L": {
+    shortDescription:
+      "The luxury industry in one fund — LVMH, Hermès, Kering, Richemont, Estée Lauder, Ferrari. The thesis is that the wealthy keep getting richer and keep spending on premium brands. Heavily weighted toward European houses but includes US and Asian luxury too.",
+    pros: [
+      "Owns iconic brands with strong pricing power",
+      "Diversified across European, US and Asian luxury",
+      "Tends to do well in wealth bull markets",
+    ],
+    cons: [
+      "Heavily sensitive to Chinese consumer spending",
+      "Can drop 30%+ when luxury demand cools",
+      "Higher fees (0.25%) than broad-market funds",
+    ],
+  },
+  "IWDP.L": {
+    shortDescription:
+      "Buy a tiny piece of shopping malls, office buildings, warehouses, data centres and apartment buildings worldwide. These companies (called REITs) collect rent and pay most of it out to you as dividends — usually 3-4% per year in cash.",
+    pros: [
+      "Regular dividend income from rental cash flow",
+      "Diversifies away from pure stock-market risk",
+      "Real assets — bricks, land, data centres",
+    ],
+    cons: [
+      "Falls hard when interest rates rise (2022: -25%)",
+      "Tax on dividends in some accounts (less efficient)",
+      "Office / mall segments under structural pressure",
+    ],
+  },
+  "VHYL.L": {
+    shortDescription:
+      "About 1,800 companies worldwide that pay above-average dividends — banks, oil majors, pharma giants, utilities. Built for steady cash income (around 3-4% per year) rather than fast growth. Skips most fast-growing tech that pays little in dividends.",
+    pros: [
+      "Steady ~3-4% cash yield paid each quarter",
+      "Lower volatility than the broad market",
+      "Tilted to boring profitable companies",
+    ],
+    cons: [
+      "Misses out when growth stocks rally hard",
+      "Heavily weighted to old-economy sectors",
+      "Dividend taxation can hurt long-term return",
+    ],
+  },
+
   // ─── Broad market ──────────────────────────────────────────────────────
   "CSPX.L": {
     shortDescription:

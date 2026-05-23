@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Star } from "lucide-react";
 import type { Etf } from "@/lib/db/schema";
 import { PriceChart, type PriceStats, type Period } from "./price-chart";
 import { PeriodStats } from "./period-stats";
 import { Sparkline } from "./sparkline";
 import { RiskBars } from "./risk-bars";
+import { isFavorite, toggleFavorite } from "@/lib/storage/favorites";
 import { getEtfEmoji } from "@/lib/data/emoji";
 
 function annualFeeLabel(ter: string | null): string {
@@ -44,13 +45,41 @@ function formatReturn(pct: string | null): {
 
 const PERIODS: Period[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
 
+function dividendInfo(isAcc: boolean | null): {
+  label: string;
+  technical: string;
+  icon: string;
+} | null {
+  if (isAcc === true) return { label: "Reinvested", technical: "Accumulating", icon: "🔁" };
+  if (isAcc === false) return { label: "Paid out", technical: "Distributing", icon: "💵" };
+  return null;
+}
+
 export function EtfRow({ etf }: { etf: Etf }) {
   const [expanded, setExpanded] = useState(false);
   const [period, setPeriod] = useState<Period>("1Y");
   const [stats, setStats] = useState<PriceStats | null>(null);
+  const [fav, setFav] = useState(false);
   const emoji = getEtfEmoji(etf.ticker);
   const sparkData = parseSparkline(etf.sparkline1Y);
   const ret1y = formatReturn(etf.return1Y);
+  const divInfo = dividendInfo(etf.isAccumulating);
+
+  useEffect(() => {
+    setFav(isFavorite(etf.ticker));
+    function onChange() {
+      setFav(isFavorite(etf.ticker));
+    }
+    window.addEventListener("etfp:favorites-changed", onChange);
+    return () => window.removeEventListener("etfp:favorites-changed", onChange);
+  }, [etf.ticker]);
+
+  function handleToggleFav(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    const now = toggleFavorite(etf.ticker);
+    setFav(now);
+  }
 
   const ret1yCls =
     ret1y.positive == null
@@ -61,9 +90,17 @@ export function EtfRow({ etf }: { etf: Etf }) {
 
   return (
     <li>
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-5 px-6 py-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded(!expanded);
+          }
+        }}
+        className="flex w-full cursor-pointer items-center gap-5 px-6 py-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
         aria-expanded={expanded}
       >
         <ChevronDown
@@ -111,6 +148,37 @@ export function EtfRow({ etf }: { etf: Etf }) {
           <RiskBars score={etf.riskScore} />
         </div>
 
+        {/* Dividends */}
+        <div
+          className="hidden w-[78px] shrink-0 text-center md:block"
+          title={
+            divInfo
+              ? `${divInfo.label} (${divInfo.technical})`
+              : "No dividends (n/a)"
+          }
+        >
+          {divInfo ? (
+            <>
+              <div className="text-xs text-zinc-700 dark:text-zinc-300">
+                <span aria-hidden className="mr-1">
+                  {divInfo.icon}
+                </span>
+                {divInfo.label}
+              </div>
+              <div className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                dividends
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-xs text-zinc-400 dark:text-zinc-500">—</div>
+              <div className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                dividends
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Fee */}
         <div className="hidden w-[58px] shrink-0 text-right md:block">
           <div className="text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
@@ -120,7 +188,23 @@ export function EtfRow({ etf }: { etf: Etf }) {
             fee/yr
           </div>
         </div>
-      </button>
+
+        {/* Favorite */}
+        <button
+          type="button"
+          onClick={handleToggleFav}
+          className={`shrink-0 rounded-md p-1.5 transition-colors ${
+            fav
+              ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+              : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-500 dark:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-400"
+          }`}
+          aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+          aria-pressed={fav}
+          title={fav ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Star className="h-4 w-4" fill={fav ? "currentColor" : "none"} />
+        </button>
+      </div>
 
       {expanded && (
         <div className="border-t border-zinc-100 bg-zinc-50/70 px-6 pb-6 pt-5 dark:border-zinc-800 dark:bg-zinc-950/40">

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Search, Star } from "lucide-react";
 import type { Etf } from "@/lib/db/schema";
 import { EtfRow } from "./etf-row";
 import { RiskBars } from "./risk-bars";
+import { listFavorites } from "@/lib/storage/favorites";
 
 const FRIENDLY_CATEGORIES: Record<
   string,
@@ -63,7 +64,18 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
   const [search, setSearch] = useState("");
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [activeRisks, setActiveRisks] = useState<string[]>([]);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortKey>("curated");
+
+  useEffect(() => {
+    setFavorites(new Set(listFavorites()));
+    function onChange() {
+      setFavorites(new Set(listFavorites()));
+    }
+    window.addEventListener("etfp:favorites-changed", onChange);
+    return () => window.removeEventListener("etfp:favorites-changed", onChange);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -94,6 +106,7 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
         });
         if (!matches) return false;
       }
+      if (favoritesOnly && !favorites.has(e.ticker)) return false;
       return true;
     });
 
@@ -123,7 +136,7 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
       );
     }
     return list;
-  }, [etfs, search, activeCategories, activeRisks, sort]);
+  }, [etfs, search, activeCategories, activeRisks, sort, favoritesOnly, favorites]);
 
   const toggle =
     (set: string[], setSet: (v: string[]) => void) => (value: string) => {
@@ -136,10 +149,14 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
     setSearch("");
     setActiveCategories([]);
     setActiveRisks([]);
+    setFavoritesOnly(false);
   };
 
   const hasFilters =
-    search !== "" || activeCategories.length > 0 || activeRisks.length > 0;
+    search !== "" ||
+    activeCategories.length > 0 ||
+    activeRisks.length > 0 ||
+    favoritesOnly;
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10">
@@ -205,6 +222,28 @@ export function EtfsExplorer({ etfs }: { etfs: Etf[] }) {
             ))}
           </div>
         </div>
+
+        {/* Favorites toggle */}
+        {favorites.size > 0 && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly(!favoritesOnly)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                favoritesOnly
+                  ? "border-amber-500 bg-amber-500 text-white"
+                  : "border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/40"
+              }`}
+              aria-pressed={favoritesOnly}
+            >
+              <Star
+                className="h-3.5 w-3.5"
+                fill={favoritesOnly ? "currentColor" : "none"}
+              />
+              <span>Only my favorites ({favorites.size})</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Result count + sort */}

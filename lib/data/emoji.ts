@@ -65,6 +65,11 @@ const ETF_EMOJIS: Record<string, string> = {
   // ─── Bonds ─────────────────────────────────────────────────────
   "AGGG.L": "🛡️", // Defensive bonds
 
+  // ─── New themes ────────────────────────────────────────────────
+  "LUXG.L": "💎", // Luxury brands
+  "IWDP.L": "🏢", // Real estate / REITs
+  "VHYL.L": "💰", // High-dividend stocks
+
   // ─── Sustainable / SRI ─────────────────────────────────────────
   "SUSW.L": "🌱", // World SRI
   "SUUS.L": "🌱", // US SRI

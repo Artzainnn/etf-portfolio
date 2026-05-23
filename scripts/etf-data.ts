@@ -974,6 +974,71 @@ export const seedEtfs: NewEtf[] = [
     tags: ["saudi", "middle-east", "emerging", "energy"],
   },
 
+  // ─── New themes (luxury, real estate, dividends) ───────────────
+  {
+    ticker: "LUXG.L",
+    friendlyName: "Luxury brands (LVMH, Hermès, Kering)",
+    name: "Amundi Global Luxury UCITS ETF USD (Acc)",
+    shortDescription:
+      "The luxury industry in one fund — LVMH, Hermès, Kering, Richemont, Estée Lauder, Ferrari and other high-end brands. Tends to do well when the wealthy keep spending.",
+    longDescription:
+      "Tracks S&P Global Luxury — about 80 companies producing luxury goods or services worldwide. Heavily skewed toward European brands but includes US and Asian luxury too. Sensitive to Chinese consumer demand.",
+    category: "thematic",
+    subCategory: "luxury",
+    ter: "0.0025",
+    domicile: "Luxembourg",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "LSE",
+    currency: "GBp",
+    riskScore: 4,
+    issuer: "Amundi",
+    benchmark: "S&P Global Luxury",
+    tags: ["luxury", "consumer", "europe", "thematic", "lvmh", "hermes"],
+  },
+  {
+    ticker: "IWDP.L",
+    friendlyName: "Global real estate (REITs)",
+    name: "iShares Developed Markets Property Yield UCITS ETF",
+    shortDescription:
+      "Owns a slice of real-estate companies and REITs around the developed world — shopping malls, offices, warehouses, data centres, apartments. Pays out the rental income as dividends.",
+    longDescription:
+      "Tracks FTSE EPRA/NAREIT Developed Dividend+ — global listed property companies and REITs. Heavy in US (~60%) and Japan. Sensitive to interest rates — rising rates usually hurt REIT prices.",
+    category: "thematic",
+    subCategory: "real_estate",
+    ter: "0.0059",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: false,
+    exchange: "LSE",
+    currency: "GBp",
+    riskScore: 3,
+    issuer: "iShares",
+    benchmark: "FTSE EPRA/NAREIT Developed Dividend+",
+    tags: ["reits", "real-estate", "property", "global", "income"],
+  },
+  {
+    ticker: "VHYL.L",
+    friendlyName: "Global dividend payers",
+    name: "Vanguard FTSE All-World High Dividend Yield UCITS ETF",
+    shortDescription:
+      "About 1,800 companies worldwide that pay above-average dividends — banks, oil majors, pharma, utilities. Built for income rather than growth.",
+    longDescription:
+      "Tracks the FTSE All-World High Dividend Yield index. Excludes REITs. Tilted to value sectors — financials, energy, healthcare. Pays dividends quarterly. Lower growth potential than the broad world index but higher cash yield (~3-4%).",
+    category: "thematic",
+    subCategory: "dividends",
+    ter: "0.0029",
+    domicile: "Ireland",
+    isUcits: true,
+    isAccumulating: false,
+    exchange: "LSE",
+    currency: "GBP",
+    riskScore: 3,
+    issuer: "Vanguard",
+    benchmark: "FTSE All-World High Dividend Yield",
+    tags: ["dividend", "income", "global", "value"],
+  },
+
   // ─── Sustainable / SRI ─────────────────────────────────────────
   {
     ticker: "SUSW.L",

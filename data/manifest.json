@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-23T16:09:29.162Z",
-  "etfCount": 47,
-  "priceFileCount": 47,
+  "generatedAt": "2026-05-23T16:37:14.310Z",
+  "etfCount": 50,
+  "priceFileCount": 50,
   "tickers": [
     "AGGG.L",
     "CSPX.L",
@@ -41,12 +41,15 @@
     "DH2O.L",
     "INRG.L",
     "ISPY.L",
+    "IWDP.L",
     "LITU.L",
+    "LUXG.L",
     "NATO.L",
     "NUCL.L",
     "RBOT.L",
     "SMGB.L",
     "URNM.L",
+    "VHYL.L",
     "WCBR.L",
     "WCLD.L",
     "WTAI.L"
