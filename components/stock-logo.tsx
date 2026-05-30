@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   fallbackLogoUrl,
   primaryLogoUrl,
 } from "@/lib/data/stock-logos";
+import { LOGO_FILES } from "@/lib/data/logo-manifest";
 
 /**
- * Renders a stock's company logo with a graceful fallback chain:
- *   1. icon.horse (good quality, no auth needed)
- *   2. Google favicon (lower quality, universally available)
- *   3. Emoji fallback (when no domain is mapped or both image loads fail)
+ * Renders a company / fund logo with a graceful fallback chain:
+ *   1. Local cached file under /public/logos (downloaded ahead of time)
+ *   2. icon.horse (live, good quality)
+ *   3. Google favicon (live, universal)
+ *   4. Emoji fallback
  *
- * Loaded with native <img> (no Next.js Image domain config required).
+ * Most logos resolve at step 1 with zero external requests.
  */
 export function StockLogo({
   ticker,
@@ -23,14 +25,21 @@ export function StockLogo({
   fallbackEmoji: string;
   size?: number;
 }) {
-  const primary = primaryLogoUrl(ticker);
-  const fallback = fallbackLogoUrl(ticker);
+  // Ordered list of image URLs to try before falling back to the emoji.
+  const sources = useMemo(() => {
+    const list: string[] = [];
+    const localFile = LOGO_FILES[ticker];
+    if (localFile) list.push(`/logos/${localFile}`);
+    const primary = primaryLogoUrl(ticker);
+    if (primary) list.push(primary);
+    const fallback = fallbackLogoUrl(ticker);
+    if (fallback) list.push(fallback);
+    return list;
+  }, [ticker]);
 
-  const [step, setStep] = useState<"primary" | "fallback" | "failed">(
-    primary ? "primary" : fallback ? "fallback" : "failed",
-  );
+  const [idx, setIdx] = useState(0);
 
-  if (step === "failed" || (!primary && !fallback)) {
+  if (sources.length === 0 || idx >= sources.length) {
     return (
       <span
         className="inline-flex shrink-0 items-center justify-center leading-none"
@@ -42,8 +51,6 @@ export function StockLogo({
     );
   }
 
-  const src = step === "primary" ? primary! : fallback!;
-
   return (
     <span
       className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-zinc-200 dark:bg-zinc-100 dark:ring-zinc-700"
@@ -51,19 +58,13 @@ export function StockLogo({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={sources[idx]}
         alt={`${ticker} logo`}
         width={size}
         height={size}
         loading="lazy"
         className="h-full w-full object-contain"
-        onError={() => {
-          if (step === "primary" && fallback) {
-            setStep("fallback");
-          } else {
-            setStep("failed");
-          }
-        }}
+        onError={() => setIdx((i) => i + 1)}
       />
     </span>
   );

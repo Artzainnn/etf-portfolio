@@ -15,7 +15,8 @@
     "db:refresh-stats": "tsx scripts/refresh-stats.ts",
     "db:export-static": "tsx scripts/export-static.ts",
     "db:refresh-stocks": "tsx scripts/refresh-stocks.ts",
-    "db:refresh-etfs-static": "tsx scripts/refresh-etfs-static.ts"
+    "db:refresh-etfs-static": "tsx scripts/refresh-etfs-static.ts",
+    "logos:download": "tsx scripts/download-logos.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

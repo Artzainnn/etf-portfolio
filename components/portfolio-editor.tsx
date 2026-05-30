@@ -214,7 +214,7 @@ export function PortfolioEditor({
 
   function buildCopyText(): string {
     const fmtSgd = (v: number) =>
-      `SGD ${v.toLocaleString("en-SG", { maximumFractionDigits: 0 })}`;
+      `S$${v.toLocaleString("en-SG", { maximumFractionDigits: 0 })}`;
     const lines: string[] = [];
     lines.push(`**${name}**`);
     if (description.trim()) lines.push(description.trim());
@@ -421,11 +421,13 @@ export function PortfolioEditor({
               const yearlyOnStart =
                 initialInvestment > 0 ? initialInvestment * avgFee : 0;
               const fmt = (v: number) =>
-                v.toLocaleString("en-SG", {
-                  style: "currency",
-                  currency: "SGD",
-                  maximumFractionDigits: 0,
-                });
+                v
+                  .toLocaleString("en-SG", {
+                    style: "currency",
+                    currency: "SGD",
+                    maximumFractionDigits: 0,
+                  })
+                  .replace("$", "S$");
               return (
                 <div className="mt-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
                   <div className="flex items-baseline justify-between gap-3">

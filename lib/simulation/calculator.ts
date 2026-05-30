@@ -225,10 +225,12 @@ export function formatMoney(
   opts: { compact?: boolean } = {},
 ): string {
   const compact = opts.compact ?? Math.abs(value) >= 100_000;
-  return new Intl.NumberFormat("en-SG", {
+  const out = new Intl.NumberFormat("en-SG", {
     style: "currency",
     currency,
     notation: compact ? "compact" : "standard",
     maximumFractionDigits: compact ? 2 : 0,
   }).format(value);
+  // en-SG renders SGD with a bare "$"; disambiguate from USD by using "S$".
+  return currency === "SGD" ? out.replace("$", "S$") : out;
 }
