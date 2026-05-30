@@ -548,8 +548,11 @@ function AllocationRow({
           <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             {allocation.friendlyName}
           </div>
-          <div className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-            {allocation.name}
+          <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-tight text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+              {allocation.ticker}
+            </span>
+            <span className="truncate">{allocation.name}</span>
           </div>
         </div>
         <input
@@ -705,8 +708,11 @@ function AddEtfPicker({
                   <div className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {etf.friendlyName ?? etf.name}
                   </div>
-                  <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {etf.name}
+                  <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono font-semibold tracking-tight text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                      {etf.ticker}
+                    </span>
+                    <span className="truncate">{etf.name}</span>
                   </div>
                 </div>
               </button>
