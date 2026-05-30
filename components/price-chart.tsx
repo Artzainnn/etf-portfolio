@@ -16,7 +16,7 @@ import {
   type Period as ClientPeriod,
   type PriceStats as ClientPriceStats,
 } from "@/lib/marketData/clientPrices";
-import { COMPARE_BENCHMARKS } from "@/lib/data/benchmarks";
+import { getBenchmark } from "@/lib/data/benchmarks";
 import { StockLogo } from "./stock-logo";
 
 export type Period = ClientPeriod;
@@ -29,6 +29,10 @@ interface Props {
   variant?: "compact" | "tall";
   /** Optional comparison benchmark ticker (empty string = no comparison). */
   compareTicker?: string;
+  /** Display name for the main fund (shown in the "X vs Y" legend). */
+  mainName?: string;
+  /** Fallback emoji for the main fund's logo (if logo fetch fails). */
+  mainEmoji?: string;
   /** Notify parent when stats land. */
   onStats?: (stats: PriceStats | null) => void;
 }
@@ -38,6 +42,8 @@ export function PriceChart({
   period,
   variant = "compact",
   compareTicker = "",
+  mainName,
+  mainEmoji,
   onStats,
 }: Props) {
   const [data, setData] = useState<{
@@ -130,11 +136,7 @@ export function PriceChart({
   const compareColor = "#a1a1aa";
   const gradientId = `grad-${ticker}-${period}`;
 
-  const compareLabel =
-    compareTicker
-      ? COMPARE_BENCHMARKS.find((b) => b.ticker === compareTicker)?.label ??
-        compareTicker
-      : null;
+  const compareBenchmark = compareTicker ? getBenchmark(compareTicker) : null;
 
   return (
     <div className={`${heightCls} w-full`}>
@@ -244,19 +246,26 @@ export function PriceChart({
           )}
         </ComposedChart>
       </ResponsiveContainer>
-      {compareLabel && compareTicker && (
-        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span className="inline-block h-1.5 w-3 rounded-sm bg-zinc-400" />
-          <span>vs</span>
+      {compareTicker && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+          <StockLogo
+            ticker={ticker}
+            fallbackEmoji={mainEmoji ?? "📊"}
+            size={16}
+          />
+          {mainName && (
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+              {mainName}
+            </span>
+          )}
+          <span className="text-zinc-400 dark:text-zinc-500">vs</span>
           <StockLogo
             ticker={compareTicker}
-            fallbackEmoji={
-              compareLabel.match(/^\p{Extended_Pictographic}+/u)?.[0] ?? "📊"
-            }
-            size={18}
+            fallbackEmoji={compareBenchmark?.emoji ?? "📊"}
+            size={16}
           />
           <span className="truncate">
-            {compareLabel.replace(/^\p{Extended_Pictographic}+\s*/u, "")}
+            {compareBenchmark?.label ?? compareTicker}
           </span>
         </div>
       )}

@@ -119,8 +119,8 @@ export function StockRow({
               {stock.ticker}
             </span>
           </div>
-          {/* Country + industries meta line */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          {/* Country + industries meta line — more breathing room from the title */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
             <span className="inline-flex items-center gap-1">
               <span aria-hidden>{flagFor(stock.country)}</span>
               <span className="font-medium">{stock.country}</span>
@@ -140,7 +140,7 @@ export function StockRow({
             })}
           </div>
           {stock.shortDescription && (
-            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
               {stock.shortDescription}
             </p>
           )}
@@ -196,7 +196,7 @@ export function StockRow({
 
           {/* Industry chips */}
           {stock.industries.length > 0 && (
-            <div className="mb-5 mt-3 flex flex-wrap gap-1.5">
+            <div className="mb-4 flex flex-wrap gap-1.5">
               {stock.industries.map((ind) => {
                 const meta = INDUSTRY_LOOKUP.get(ind);
                 if (!meta) return null;
@@ -220,6 +220,8 @@ export function StockRow({
               period={period}
               variant="compact"
               compareTicker={compare}
+              mainName={stock.friendlyName}
+              mainEmoji={emoji}
               onStats={setStats}
             />
 

@@ -6,12 +6,7 @@ import { getEtfEmoji } from "@/lib/data/emoji";
 
 /**
  * Dropdown for picking a benchmark to overlay on a chart.
- *
- * Layout:
- *   - "— Off" at top to disable comparison
- *   - "Common benchmarks" group: the curated short-list
- *   - "All other funds" group: the rest of the dataset (alphabetical
- *     within each category bucket already established in the data layer)
+ * Curated benchmarks pinned at top, the rest of the fund universe below.
  */
 export function CompareSelect({
   value,
@@ -21,7 +16,6 @@ export function CompareSelect({
 }: {
   value: string;
   onChange: (ticker: string) => void;
-  /** Hide this ticker from the dropdown (e.g. don't compare a fund to itself). */
   excludeTicker?: string;
   className?: string;
 }) {
@@ -42,7 +36,7 @@ export function CompareSelect({
         {COMPARE_BENCHMARKS.filter((b) => b.ticker !== excludeTicker).map(
           (b) => (
             <option key={b.ticker} value={b.ticker}>
-              {b.label}
+              {b.emoji} {b.label}
             </option>
           ),
         )}
