@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GitCompareArrows, LineChart, Wallet } from "lucide-react";
+import { Building2, GitCompareArrows, LineChart, Wallet } from "lucide-react";
 
 const tabs = [
-  { href: "/etfs", label: "Indices", icon: LineChart },
-  { href: "/portfolios", label: "Portfolio Builder", icon: Wallet },
+  { href: "/etfs", label: "ETFs", icon: LineChart },
+  { href: "/stocks", label: "Stocks", icon: Building2 },
+  { href: "/portfolios", label: "Portfolios", icon: Wallet },
   { href: "/compare", label: "Compare", icon: GitCompareArrows },
 ];
 
