@@ -25,6 +25,12 @@ export const INDUSTRIES: Industry[] = [
   { key: "luxury", label: "Luxury", emoji: "💎" },
   { key: "travel", label: "Travel & hospitality", emoji: "✈️" },
   { key: "finance", label: "Finance & banks", emoji: "🏦" },
+  { key: "payments", label: "Payments", emoji: "💳" },
+  { key: "retail", label: "Retail & consumer", emoji: "🏪" },
+  { key: "telecom", label: "Telecom", emoji: "📡" },
+  { key: "industrials", label: "Industrials", emoji: "🏗️" },
+  { key: "media", label: "Media & entertainment", emoji: "🎬" },
+  { key: "crypto", label: "Crypto-adjacent", emoji: "⛓️" },
   { key: "singapore", label: "Singapore", emoji: "🇸🇬" },
 ];
 

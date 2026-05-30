@@ -728,4 +728,675 @@ export const SEED_STOCKS: SeedStock[] = [
     industries: ["ecommerce", "big_tech", "singapore"],
     country: "SG",
   },
+
+  // ─── More Big Tech / Internet ──────────────────────────────────
+  {
+    ticker: "UBER",
+    name: "Uber Technologies Inc.",
+    friendlyName: "Uber",
+    shortDescription:
+      "Ride-hailing + food delivery (Uber Eats) + freight. Finally consistently profitable after years of cash burn.",
+    industries: ["big_tech", "travel"],
+    country: "US",
+  },
+  {
+    ticker: "SPOT",
+    name: "Spotify Technology S.A.",
+    friendlyName: "Spotify",
+    shortDescription:
+      "Music streaming leader globally. Heavy investment in podcasts and audiobooks. Margins are slowly improving.",
+    industries: ["big_tech", "media"],
+    country: "SE",
+  },
+  {
+    ticker: "NET",
+    name: "Cloudflare Inc.",
+    friendlyName: "Cloudflare",
+    shortDescription:
+      "Internet infrastructure: CDN, DDoS protection, edge compute. Quietly becoming an AI inference platform.",
+    industries: ["big_tech", "saas", "ai"],
+    country: "US",
+  },
+  {
+    ticker: "SHOP",
+    name: "Shopify Inc.",
+    friendlyName: "Shopify",
+    shortDescription:
+      "E-commerce platform for small/medium merchants. The main alternative to selling on Amazon.",
+    industries: ["ecommerce", "saas"],
+    country: "CA",
+  },
+  {
+    ticker: "DELL",
+    name: "Dell Technologies Inc.",
+    friendlyName: "Dell",
+    shortDescription:
+      "PC maker, but the AI-server business (selling Nvidia-powered servers) has been the growth driver lately.",
+    industries: ["big_tech", "ai"],
+    country: "US",
+  },
+  {
+    ticker: "RBLX",
+    name: "Roblox Corporation",
+    friendlyName: "Roblox",
+    shortDescription:
+      "User-generated games platform mainly for kids/teens. Often pitched as a metaverse play.",
+    industries: ["big_tech", "media"],
+    country: "US",
+  },
+  {
+    ticker: "DIS",
+    name: "The Walt Disney Company",
+    friendlyName: "Disney",
+    shortDescription:
+      "Theme parks, Disney+ streaming, ESPN, movies (Marvel, Pixar, Star Wars). Multi-year transition challenge.",
+    industries: ["media", "travel"],
+    country: "US",
+  },
+  {
+    ticker: "ROKU",
+    name: "Roku Inc.",
+    friendlyName: "Roku",
+    shortDescription:
+      "Streaming-TV OS + ad platform. Cyclical with advertising spend.",
+    industries: ["media", "big_tech"],
+    country: "US",
+  },
+
+  // ─── More AI / networking ──────────────────────────────────────
+  {
+    ticker: "ANET",
+    name: "Arista Networks Inc.",
+    friendlyName: "Arista Networks",
+    shortDescription:
+      "High-end data-centre switches. Major beneficiary of the AI build-out — Meta and Microsoft are huge customers.",
+    industries: ["ai", "chips"],
+    country: "US",
+  },
+
+  // ─── More chips ────────────────────────────────────────────────
+  {
+    ticker: "ARM",
+    name: "Arm Holdings plc",
+    friendlyName: "Arm",
+    shortDescription:
+      "UK chip designer. Owns the architecture used in nearly every smartphone. Pushing into AI/data-centre CPUs.",
+    industries: ["chips", "ai"],
+    country: "GB",
+  },
+  {
+    ticker: "MRVL",
+    name: "Marvell Technology Inc.",
+    friendlyName: "Marvell",
+    shortDescription:
+      "Custom chips for hyperscalers + storage/networking silicon. Big AI infrastructure exposure.",
+    industries: ["chips", "ai"],
+    country: "US",
+  },
+  {
+    ticker: "LRCX",
+    name: "Lam Research Corporation",
+    friendlyName: "Lam Research",
+    shortDescription:
+      "Wafer-fabrication equipment. Sells to TSMC, Samsung, Intel. Cyclical with chip-fab capex.",
+    industries: ["chips"],
+    country: "US",
+  },
+  {
+    ticker: "KLAC",
+    name: "KLA Corporation",
+    friendlyName: "KLA",
+    shortDescription:
+      "Inspection/metrology equipment for chip fabs. Less talked-about than ASML but similarly entrenched.",
+    industries: ["chips"],
+    country: "US",
+  },
+  {
+    ticker: "AMAT",
+    name: "Applied Materials Inc.",
+    friendlyName: "Applied Materials",
+    shortDescription:
+      "Largest US chip-equipment maker. Sells deposition and etching gear to every major foundry.",
+    industries: ["chips"],
+    country: "US",
+  },
+
+  // ─── More SaaS ─────────────────────────────────────────────────
+  {
+    ticker: "TEAM",
+    name: "Atlassian Corporation",
+    friendlyName: "Atlassian",
+    shortDescription:
+      "Jira, Confluence, Bitbucket — developer productivity tools. Most software teams use at least one of their products.",
+    industries: ["saas"],
+    country: "AU",
+  },
+  {
+    ticker: "HUBS",
+    name: "HubSpot Inc.",
+    friendlyName: "HubSpot",
+    shortDescription:
+      "Marketing + sales CRM software for SMBs. Less enterprise-y than Salesforce.",
+    industries: ["saas"],
+    country: "US",
+  },
+  {
+    ticker: "ZS",
+    name: "Zscaler Inc.",
+    friendlyName: "Zscaler",
+    shortDescription:
+      "Cloud-based security (SASE/zero-trust). Premium-priced but hot in enterprise security.",
+    industries: ["saas"],
+    country: "US",
+  },
+  {
+    ticker: "OKTA",
+    name: "Okta Inc.",
+    friendlyName: "Okta",
+    shortDescription:
+      "Identity-as-a-service — single sign-on for the enterprise. Has had high-profile breaches.",
+    industries: ["saas"],
+    country: "US",
+  },
+  {
+    ticker: "WDAY",
+    name: "Workday Inc.",
+    friendlyName: "Workday",
+    shortDescription:
+      "Cloud HR and finance software for large enterprises. Steady enterprise grower.",
+    industries: ["saas"],
+    country: "US",
+  },
+  {
+    ticker: "IBM",
+    name: "IBM Corporation",
+    friendlyName: "IBM",
+    shortDescription:
+      "Legacy enterprise tech now focused on hybrid cloud (Red Hat) and consulting. Decent dividend.",
+    industries: ["saas", "big_tech"],
+    country: "US",
+  },
+
+  // ─── More Cars / EV ───────────────────────────────────────────
+  {
+    ticker: "NIO",
+    name: "NIO Inc.",
+    friendlyName: "NIO",
+    shortDescription:
+      "Chinese EV maker. Premium positioning, battery-swap network. Loss-making, competitive Chinese EV market.",
+    industries: ["cars"],
+    country: "CN",
+  },
+  {
+    ticker: "XPEV",
+    name: "XPeng Inc.",
+    friendlyName: "XPeng",
+    shortDescription:
+      "Chinese EV maker with a focus on autonomous-driving tech. Competing in a brutal Chinese price war.",
+    industries: ["cars", "ai"],
+    country: "CN",
+  },
+  {
+    ticker: "LI",
+    name: "Li Auto Inc.",
+    friendlyName: "Li Auto",
+    shortDescription:
+      "Chinese EV maker focused on range-extender SUVs for families. Profitable, unusual for a new EV brand.",
+    industries: ["cars"],
+    country: "CN",
+  },
+
+  // ─── More Defense ─────────────────────────────────────────────
+  {
+    ticker: "HII",
+    name: "Huntington Ingalls Industries Inc.",
+    friendlyName: "Huntington Ingalls",
+    shortDescription:
+      "Largest US shipbuilder. Builds Navy aircraft carriers and submarines. Hard to disrupt — gov contracts.",
+    industries: ["defense", "industrials"],
+    country: "US",
+  },
+
+  // ─── More Energy ──────────────────────────────────────────────
+  {
+    ticker: "OXY",
+    name: "Occidental Petroleum Corporation",
+    friendlyName: "Occidental Petroleum",
+    shortDescription:
+      "US oil + chemicals. Famously a Warren Buffett favourite. Big carbon-capture ambitions.",
+    industries: ["energy"],
+    country: "US",
+  },
+  {
+    ticker: "EOG",
+    name: "EOG Resources Inc.",
+    friendlyName: "EOG Resources",
+    shortDescription:
+      "US shale oil/gas producer. Lower-cost than peers, disciplined capital returns.",
+    industries: ["energy"],
+    country: "US",
+  },
+  {
+    ticker: "EQNR",
+    name: "Equinor ASA",
+    friendlyName: "Equinor",
+    shortDescription:
+      "Norwegian state-controlled energy giant. Oil/gas + meaningful renewables push (offshore wind).",
+    industries: ["energy", "clean_energy"],
+    country: "NO",
+  },
+
+  // ─── More Clean Energy ────────────────────────────────────────
+  {
+    ticker: "RUN",
+    name: "Sunrun Inc.",
+    friendlyName: "Sunrun",
+    shortDescription:
+      "Largest US residential solar installer. Subscription model — like a utility but with rooftop solar.",
+    industries: ["clean_energy"],
+    country: "US",
+  },
+  {
+    ticker: "SEDG",
+    name: "SolarEdge Technologies Inc.",
+    friendlyName: "SolarEdge",
+    shortDescription:
+      "Solar inverters + storage. Israeli-headquartered. Hit hard by the 2022-23 solar downturn.",
+    industries: ["clean_energy"],
+    country: "IL",
+  },
+
+  // ─── More Travel ──────────────────────────────────────────────
+  {
+    ticker: "HLT",
+    name: "Hilton Worldwide Holdings Inc.",
+    friendlyName: "Hilton",
+    shortDescription:
+      "Hilton, Conrad, Waldorf Astoria, Hampton Inn… Franchise model — lower capital intensity than owning hotels.",
+    industries: ["travel"],
+    country: "US",
+  },
+  {
+    ticker: "RCL",
+    name: "Royal Caribbean Cruises Ltd",
+    friendlyName: "Royal Caribbean",
+    shortDescription:
+      "Largest cruise operator. Strong rebound post-COVID. High debt load is a feature of the cruise business.",
+    industries: ["travel"],
+    country: "US",
+  },
+  {
+    ticker: "CCL",
+    name: "Carnival Corporation",
+    friendlyName: "Carnival",
+    shortDescription:
+      "Biggest cruise company by ship count (Carnival, Princess, Holland America, Cunard). Heavily indebted.",
+    industries: ["travel"],
+    country: "US",
+  },
+
+  // ─── More Robotics ────────────────────────────────────────────
+  {
+    ticker: "ROK",
+    name: "Rockwell Automation Inc.",
+    friendlyName: "Rockwell Automation",
+    shortDescription:
+      "US industrial automation leader. Sells factory-floor control systems and software.",
+    industries: ["robotics", "industrials"],
+    country: "US",
+  },
+
+  // ─── More Pharma ──────────────────────────────────────────────
+  {
+    ticker: "PFE",
+    name: "Pfizer Inc.",
+    friendlyName: "Pfizer",
+    shortDescription:
+      "US pharma giant. Post-COVID slump — they're hunting for the next blockbuster franchise.",
+    industries: ["pharma"],
+    country: "US",
+  },
+  {
+    ticker: "MRK",
+    name: "Merck & Co. Inc.",
+    friendlyName: "Merck",
+    shortDescription:
+      "Maker of Keytruda — the world's best-selling cancer drug. Looking ahead to its patent cliff.",
+    industries: ["pharma"],
+    country: "US",
+  },
+  {
+    ticker: "NVS",
+    name: "Novartis AG",
+    friendlyName: "Novartis",
+    shortDescription:
+      "Swiss pharma giant. Strong oncology pipeline, recently spun off Sandoz (generics).",
+    industries: ["pharma"],
+    country: "CH",
+  },
+  {
+    ticker: "BMY",
+    name: "Bristol-Myers Squibb Company",
+    friendlyName: "Bristol-Myers Squibb",
+    shortDescription:
+      "Big US pharma. Eliquis (blood thinner) is the cash cow but faces a patent cliff this decade.",
+    industries: ["pharma"],
+    country: "US",
+  },
+  {
+    ticker: "GILD",
+    name: "Gilead Sciences Inc.",
+    friendlyName: "Gilead",
+    shortDescription:
+      "HIV + hepatitis-C leader. Newer cancer franchise is the growth bet.",
+    industries: ["pharma"],
+    country: "US",
+  },
+
+  // ─── More Luxury ──────────────────────────────────────────────
+  {
+    ticker: "EL",
+    name: "The Estée Lauder Companies Inc.",
+    friendlyName: "Estée Lauder",
+    shortDescription:
+      "Premium cosmetics (Estée Lauder, La Mer, MAC, Clinique). Heavy China exposure — bruised the last 2-3 years.",
+    industries: ["luxury", "retail"],
+    country: "US",
+  },
+  {
+    ticker: "KER.PA",
+    name: "Kering S.A.",
+    friendlyName: "Kering (Gucci, YSL)",
+    shortDescription:
+      "Owns Gucci, Saint Laurent, Bottega Veneta, Balenciaga. Currently struggling vs LVMH and Hermès.",
+    industries: ["luxury"],
+    country: "FR",
+  },
+
+  // ─── More E-commerce ──────────────────────────────────────────
+  {
+    ticker: "ETSY",
+    name: "Etsy Inc.",
+    friendlyName: "Etsy",
+    shortDescription:
+      "Marketplace for handmade/vintage goods. Struggled to grow since pandemic peak.",
+    industries: ["ecommerce"],
+    country: "US",
+  },
+  {
+    ticker: "PYPL",
+    name: "PayPal Holdings Inc.",
+    friendlyName: "PayPal",
+    shortDescription:
+      "Digital payments + Venmo. Was a darling, now a turnaround story.",
+    industries: ["payments", "finance"],
+    country: "US",
+  },
+
+  // ─── More Finance ─────────────────────────────────────────────
+  {
+    ticker: "V",
+    name: "Visa Inc.",
+    friendlyName: "Visa",
+    shortDescription:
+      "The biggest card network. Toll-collector on global card spending. Wide moat, predictable cash flows.",
+    industries: ["payments", "finance"],
+    country: "US",
+  },
+  {
+    ticker: "MA",
+    name: "Mastercard Incorporated",
+    friendlyName: "Mastercard",
+    shortDescription:
+      "The other big card network. Same toll-collector model as Visa. Often moves in lockstep.",
+    industries: ["payments", "finance"],
+    country: "US",
+  },
+  {
+    ticker: "BLK",
+    name: "BlackRock Inc.",
+    friendlyName: "BlackRock",
+    shortDescription:
+      "World's largest asset manager — runs ~$10 trillion. Owner of iShares (the ETF brand).",
+    industries: ["finance"],
+    country: "US",
+  },
+  {
+    ticker: "AXP",
+    name: "American Express Company",
+    friendlyName: "American Express",
+    shortDescription:
+      "Premium card network + bank. Charges merchant fees + cardholder fees. Buffett favourite.",
+    industries: ["payments", "finance"],
+    country: "US",
+  },
+  {
+    ticker: "MS",
+    name: "Morgan Stanley",
+    friendlyName: "Morgan Stanley",
+    shortDescription:
+      "Investment bank + large wealth management business (E*TRADE).",
+    industries: ["finance"],
+    country: "US",
+  },
+  {
+    ticker: "SCHW",
+    name: "The Charles Schwab Corporation",
+    friendlyName: "Charles Schwab",
+    shortDescription:
+      "US brokerage giant. Owns TD Ameritrade. Earnings sensitive to interest rates.",
+    industries: ["finance"],
+    country: "US",
+  },
+
+  // ─── More Singapore ───────────────────────────────────────────
+  {
+    ticker: "U11.SI",
+    name: "United Overseas Bank Limited",
+    friendlyName: "UOB",
+    shortDescription:
+      "Singapore's third-largest bank. Strong ASEAN presence. Solid dividend payer.",
+    industries: ["finance", "singapore"],
+    country: "SG",
+  },
+  {
+    ticker: "O39.SI",
+    name: "Oversea-Chinese Banking Corporation Limited",
+    friendlyName: "OCBC Bank",
+    shortDescription:
+      "Singapore's second-largest bank. Major wealth-management focus (Bank of Singapore subsidiary).",
+    industries: ["finance", "singapore"],
+    country: "SG",
+  },
+  {
+    ticker: "F34.SI",
+    name: "Wilmar International Limited",
+    friendlyName: "Wilmar International",
+    shortDescription:
+      "Asian agribusiness giant — palm oil, sugar, rice. Listed in Singapore, big China exposure.",
+    industries: ["industrials", "singapore"],
+    country: "SG",
+  },
+  {
+    ticker: "9CI.SI",
+    name: "CapitaLand Investment Limited",
+    friendlyName: "CapitaLand Investment",
+    shortDescription:
+      "Singapore-based real estate manager. Asia-Pacific malls, offices, lodging. Asset-light spin-off of CapitaLand.",
+    industries: ["finance", "singapore"],
+    country: "SG",
+  },
+  {
+    ticker: "S63.SI",
+    name: "Singapore Technologies Engineering Ltd",
+    friendlyName: "ST Engineering",
+    shortDescription:
+      "Singapore's defence + aerospace + smart-city engineering champion. State-linked.",
+    industries: ["defense", "industrials", "singapore"],
+    country: "SG",
+  },
+  {
+    ticker: "J36.SI",
+    name: "Jardine Matheson Holdings Limited",
+    friendlyName: "Jardine Matheson",
+    shortDescription:
+      "Hong Kong-based conglomerate listed in Singapore. Real estate, motor dealerships, supermarkets, financial services.",
+    industries: ["finance", "industrials", "singapore"],
+    country: "SG",
+  },
+
+  // ─── Retail & Consumer ────────────────────────────────────────
+  {
+    ticker: "WMT",
+    name: "Walmart Inc.",
+    friendlyName: "Walmart",
+    shortDescription:
+      "World's largest retailer. Both physical stores and a fast-growing e-commerce business.",
+    industries: ["retail", "ecommerce"],
+    country: "US",
+  },
+  {
+    ticker: "COST",
+    name: "Costco Wholesale Corporation",
+    friendlyName: "Costco",
+    shortDescription:
+      "Membership-based warehouse retailer. Earns most of its profit from membership fees, not margins on goods.",
+    industries: ["retail"],
+    country: "US",
+  },
+  {
+    ticker: "HD",
+    name: "The Home Depot Inc.",
+    friendlyName: "Home Depot",
+    shortDescription:
+      "US home-improvement leader. Cyclical with housing — has held up well through high interest rates.",
+    industries: ["retail"],
+    country: "US",
+  },
+  {
+    ticker: "NKE",
+    name: "NIKE Inc.",
+    friendlyName: "Nike",
+    shortDescription:
+      "World's biggest sportswear brand. Struggling vs newer entrants (On, Hoka, Lululemon) and weak China.",
+    industries: ["retail", "luxury"],
+    country: "US",
+  },
+  {
+    ticker: "SBUX",
+    name: "Starbucks Corporation",
+    friendlyName: "Starbucks",
+    shortDescription:
+      "World's biggest coffee chain. In turnaround mode after weak China + slow US transactions.",
+    industries: ["retail"],
+    country: "US",
+  },
+  {
+    ticker: "MCD",
+    name: "McDonald's Corporation",
+    friendlyName: "McDonald's",
+    shortDescription:
+      "Iconic fast-food chain. Largely franchised — earns fees from operators. Steady dividend.",
+    industries: ["retail"],
+    country: "US",
+  },
+  {
+    ticker: "LULU",
+    name: "Lululemon Athletica Inc.",
+    friendlyName: "Lululemon",
+    shortDescription:
+      "Premium athletic wear (yoga + men's). After years of growth, slowing now.",
+    industries: ["retail", "luxury"],
+    country: "US",
+  },
+
+  // ─── Telecom ──────────────────────────────────────────────────
+  {
+    ticker: "VZ",
+    name: "Verizon Communications Inc.",
+    friendlyName: "Verizon",
+    shortDescription:
+      "US wireless + fibre carrier. High dividend, slow grower. Big infrastructure capex.",
+    industries: ["telecom"],
+    country: "US",
+  },
+  {
+    ticker: "TMUS",
+    name: "T-Mobile US Inc.",
+    friendlyName: "T-Mobile",
+    shortDescription:
+      "US carrier benefiting from the Sprint merger synergies. Best 5G coverage. Growing subscribers fastest.",
+    industries: ["telecom"],
+    country: "US",
+  },
+  {
+    ticker: "VOD",
+    name: "Vodafone Group plc",
+    friendlyName: "Vodafone",
+    shortDescription:
+      "UK-headquartered global telecom. Pan-European operations, plus Africa. Long dividend history; recently cut.",
+    industries: ["telecom"],
+    country: "GB",
+  },
+
+  // ─── Industrials ──────────────────────────────────────────────
+  {
+    ticker: "CAT",
+    name: "Caterpillar Inc.",
+    friendlyName: "Caterpillar",
+    shortDescription:
+      "Yellow construction equipment + mining gear + engines. Strongly cyclical with construction spending.",
+    industries: ["industrials"],
+    country: "US",
+  },
+  {
+    ticker: "DE",
+    name: "Deere & Company",
+    friendlyName: "John Deere",
+    shortDescription:
+      "Agricultural equipment leader. Cyclical with farm income. Pushing into precision agriculture / AI in the field.",
+    industries: ["industrials", "ai"],
+    country: "US",
+  },
+  {
+    ticker: "GE",
+    name: "GE Aerospace",
+    friendlyName: "GE Aerospace",
+    shortDescription:
+      "Post-spin-off, GE is purely jet engines (LEAP for Airbus/Boeing single-aisles). Air-travel cycle exposure.",
+    industries: ["industrials", "defense"],
+    country: "US",
+  },
+  {
+    ticker: "HON",
+    name: "Honeywell International Inc.",
+    friendlyName: "Honeywell",
+    shortDescription:
+      "Diversified industrial — aerospace systems, building automation, safety, performance materials.",
+    industries: ["industrials"],
+    country: "US",
+  },
+
+  // ─── Media & Entertainment ────────────────────────────────────
+  // (DIS and SPOT are tagged into media via their entries above)
+
+  // ─── Crypto-adjacent ──────────────────────────────────────────
+  {
+    ticker: "COIN",
+    name: "Coinbase Global Inc.",
+    friendlyName: "Coinbase",
+    shortDescription:
+      "Largest US crypto exchange. Revenue swings wildly with crypto-market volume + Bitcoin price.",
+    industries: ["crypto", "finance"],
+    country: "US",
+  },
+  {
+    ticker: "MSTR",
+    name: "MicroStrategy Incorporated",
+    friendlyName: "MicroStrategy",
+    shortDescription:
+      "Software company that pivoted to a 'Bitcoin treasury' strategy — holds billions in BTC. Effectively a leveraged Bitcoin proxy.",
+    industries: ["crypto"],
+    country: "US",
+  },
 ];

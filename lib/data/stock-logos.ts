@@ -95,6 +95,96 @@ export const STOCK_DOMAINS: Record<string, string> = {
   "C6L.SI": "singaporeair.com",
   "Z74.SI": "singtel.com",
   SE: "seagroup.com",
+  // ─── Additions (round 2) ───────────────────────────────────
+  // More Big Tech / Internet
+  UBER: "uber.com",
+  SPOT: "spotify.com",
+  NET: "cloudflare.com",
+  SHOP: "shopify.com",
+  DELL: "dell.com",
+  RBLX: "roblox.com",
+  DIS: "disney.com",
+  ROKU: "roku.com",
+  // AI / networking
+  ANET: "arista.com",
+  // Chips
+  ARM: "arm.com",
+  MRVL: "marvell.com",
+  LRCX: "lamresearch.com",
+  KLAC: "kla.com",
+  AMAT: "appliedmaterials.com",
+  // SaaS
+  TEAM: "atlassian.com",
+  HUBS: "hubspot.com",
+  ZS: "zscaler.com",
+  OKTA: "okta.com",
+  WDAY: "workday.com",
+  IBM: "ibm.com",
+  // Cars
+  NIO: "nio.com",
+  XPEV: "heyxpeng.com",
+  LI: "lixiang.com",
+  // Defense
+  HII: "huntingtoningalls.com",
+  // Energy
+  OXY: "oxy.com",
+  EOG: "eogresources.com",
+  EQNR: "equinor.com",
+  // Clean energy
+  RUN: "sunrun.com",
+  SEDG: "solaredge.com",
+  // Travel
+  HLT: "hilton.com",
+  RCL: "royalcaribbean.com",
+  CCL: "carnival.com",
+  // Robotics
+  ROK: "rockwellautomation.com",
+  // Pharma
+  PFE: "pfizer.com",
+  MRK: "merck.com",
+  NVS: "novartis.com",
+  BMY: "bms.com",
+  GILD: "gilead.com",
+  // Luxury
+  EL: "elcompanies.com",
+  "KER.PA": "kering.com",
+  // E-commerce
+  ETSY: "etsy.com",
+  PYPL: "paypal.com",
+  // Finance / payments
+  V: "visa.com",
+  MA: "mastercard.com",
+  BLK: "blackrock.com",
+  AXP: "americanexpress.com",
+  MS: "morganstanley.com",
+  SCHW: "schwab.com",
+  // Singapore
+  "U11.SI": "uobgroup.com",
+  "O39.SI": "ocbc.com",
+  "F34.SI": "wilmar-international.com",
+  "9CI.SI": "capitaland.com",
+  "S63.SI": "stengg.com",
+  "J36.SI": "jardines.com",
+  // Retail
+  WMT: "walmart.com",
+  COST: "costco.com",
+  HD: "homedepot.com",
+  NKE: "nike.com",
+  SBUX: "starbucks.com",
+  MCD: "mcdonalds.com",
+  LULU: "lululemon.com",
+  // Telecom
+  VZ: "verizon.com",
+  TMUS: "t-mobile.com",
+  VOD: "vodafone.com",
+  // Industrials
+  CAT: "caterpillar.com",
+  DE: "deere.com",
+  GE: "geaerospace.com",
+  HON: "honeywell.com",
+  // Crypto-adjacent
+  COIN: "coinbase.com",
+  MSTR: "strategy.com",
 };
 
 export function primaryLogoUrl(ticker: string): string | null {
