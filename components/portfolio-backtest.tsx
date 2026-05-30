@@ -352,7 +352,7 @@ export function PortfolioBacktest({
       </p>
 
       {/* Chart + controls */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_200px]">
         <div className="aspect-[16/9] w-full">
           {loading ? (
             <div className="flex h-full animate-pulse items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">

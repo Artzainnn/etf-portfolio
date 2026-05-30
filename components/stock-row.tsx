@@ -214,7 +214,7 @@ export function StockRow({
           )}
 
           {/* Chart + controls — right column wider so 'S&P 500 (US)' isn't truncated */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_180px]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_200px]">
             <PriceChart
               ticker={stock.ticker}
               period={period}

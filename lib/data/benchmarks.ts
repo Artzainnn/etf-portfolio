@@ -9,15 +9,15 @@ export interface Benchmark {
 }
 
 export const COMPARE_BENCHMARKS: Benchmark[] = [
-  { ticker: "CSPX.L", label: "🇺🇸 S&P 500 (US)" },
-  { ticker: "IWDA.L", label: "🌍 Developed world (MSCI World)" },
-  { ticker: "VWCE.DE", label: "🌐 All-world incl emerging" },
+  { ticker: "CSPX.L", label: "🇺🇸 S&P 500" },
+  { ticker: "IWDA.L", label: "🌍 Developed world" },
+  { ticker: "VWCE.DE", label: "🌐 All-world" },
   { ticker: "EIMI.L", label: "📈 Emerging markets" },
   { ticker: "IMEU.L", label: "🇪🇺 Europe" },
   { ticker: "SJPA.L", label: "🇯🇵 Japan" },
   { ticker: "CPXJ.L", label: "🌏 Asia-Pacific" },
-  { ticker: "CNDX.L", label: "💻 Nasdaq 100 (US tech)" },
-  { ticker: "AGGG.L", label: "🛡️ Global bonds (defensive)" },
+  { ticker: "CNDX.L", label: "💻 Nasdaq 100" },
+  { ticker: "AGGG.L", label: "🛡️ Global bonds" },
   { ticker: "SGLN.L", label: "🥇 Gold" },
 ];
 
