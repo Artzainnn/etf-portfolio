@@ -55,7 +55,14 @@ export function StockRow({
     stock.ticker === DEFAULT_COMPARE_TICKER ? "" : DEFAULT_COMPARE_TICKER,
   );
 
-  const emoji = stock.emoji ?? flagFor(stock.country);
+  // Leading emoji = stock-specific override OR first industry's emoji (so it
+  // always conveys "what this is"). The country flag goes on the meta line below.
+  const primaryIndustry = stock.industries[0];
+  const primaryIndustryMeta = primaryIndustry
+    ? INDUSTRY_LOOKUP.get(primaryIndustry)
+    : null;
+  const emoji =
+    stock.emoji ?? primaryIndustryMeta?.emoji ?? flagFor(stock.country);
   const sparkData = stock.periodSparklines?.[previewPeriod] ?? null;
   const periodReturn = stock.periodReturns?.[previewPeriod] ?? null;
   const retInfo = formatReturnNumber(periodReturn);
@@ -113,8 +120,28 @@ export function StockRow({
               {stock.ticker}
             </span>
           </div>
+          {/* Country + industries meta line */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="inline-flex items-center gap-1">
+              <span aria-hidden>{flagFor(stock.country)}</span>
+              <span className="font-medium">{stock.country}</span>
+            </span>
+            {stock.industries.map((ind) => {
+              const meta = INDUSTRY_LOOKUP.get(ind);
+              if (!meta) return null;
+              return (
+                <span
+                  key={ind}
+                  className="inline-flex items-center gap-1 before:mr-1 before:text-zinc-300 before:content-['·'] dark:before:text-zinc-700"
+                >
+                  <span aria-hidden>{meta.emoji}</span>
+                  <span>{meta.label}</span>
+                </span>
+              );
+            })}
+          </div>
           {stock.shortDescription && (
-            <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
               {stock.shortDescription}
             </p>
           )}
