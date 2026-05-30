@@ -70,11 +70,11 @@ function periodToDays(period: Period): number | null {
 const CACHE = new Map<string, RawPriceFile>();
 const IN_FLIGHT = new Map<string, Promise<RawPriceFile>>();
 
-// We fetch price files from GitHub raw (main branch) so that daily data
-// refreshes appear without a Vercel redeploy. The fall-back path served
-// by Vercel is only used if the GitHub fetch fails.
+// We fetch price files from jsDelivr (which proxies GitHub `main`) so
+// daily data refreshes appear without a Vercel redeploy. The path on
+// the Vercel deployment itself is used as a fallback.
 const REMOTE_PRICE_BASE =
-  "https://raw.githubusercontent.com/Artzainnn/etf-portfolio/main/public/data/prices";
+  "https://cdn.jsdelivr.net/gh/Artzainnn/etf-portfolio@main/public/data/prices";
 
 async function fetchRaw(ticker: string): Promise<RawPriceFile> {
   const cached = CACHE.get(ticker);

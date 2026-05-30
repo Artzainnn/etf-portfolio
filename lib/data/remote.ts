@@ -13,9 +13,15 @@ const REPO = "Artzainnn/etf-portfolio";
 const BRANCH = "main";
 const REVALIDATE_SECONDS = 30 * 60; // 30 min
 
-/** Raw GitHub URL for a path inside the repo's `main` branch. */
+/**
+ * jsDelivr CDN URL for a path inside the repo's `main` branch.
+ * jsDelivr proxies GitHub content with global CDN caching (~12h on
+ * @main) and works for public repos without auth. We picked jsDelivr
+ * over raw.githubusercontent.com because the latter occasionally 404s
+ * for a few minutes after a visibility change and has worse caching.
+ */
 export function remoteUrl(pathInRepo: string): string {
-  return `https://raw.githubusercontent.com/${REPO}/${BRANCH}/${pathInRepo}`;
+  return `https://cdn.jsdelivr.net/gh/${REPO}@${BRANCH}/${pathInRepo}`;
 }
 
 /**

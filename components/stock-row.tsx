@@ -113,7 +113,7 @@ export function StockRow({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 text-[15px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
-            <StockLogo ticker={stock.ticker} fallbackEmoji={emoji} size={28} />
+            <StockLogo ticker={stock.ticker} fallbackEmoji={emoji} size={20} />
             <span className="truncate">{stock.friendlyName}</span>
             <span className="shrink-0 font-mono text-[11px] font-normal text-zinc-400">
               {stock.ticker}
