@@ -11,6 +11,7 @@
 import etfsData from "@/data/etfs.json";
 import type { Etf } from "@/lib/db/schema";
 import { EDITORIAL } from "@/lib/data/editorial";
+import { fetchRemoteJsonOrFallback } from "@/lib/data/remote";
 
 export type PeriodKey = "1M" | "3M" | "6M" | "1Y" | "3Y" | "5Y" | "Max";
 
@@ -20,20 +21,30 @@ export type EtfWithPeriodData = Etf & {
   periodSparklines: Partial<Record<PeriodKey, number[]>>;
 };
 
-const RAW_ETFS = etfsData as unknown as EtfWithPeriodData[];
+const BUNDLED_ETFS = etfsData as unknown as EtfWithPeriodData[];
 
-// Merge in beginner-friendly editorial content (shortDescription rewrite,
-// pros, cons) keyed by ticker.
-const ETFS: EtfWithPeriodData[] = RAW_ETFS.map((etf) => {
-  const editorial = EDITORIAL[etf.ticker];
-  if (!editorial) return etf;
-  return {
-    ...etf,
-    shortDescription: editorial.shortDescription,
-    pros: editorial.pros,
-    cons: editorial.cons,
-  };
-});
+function applyEditorial(
+  list: EtfWithPeriodData[],
+): EtfWithPeriodData[] {
+  return list.map((etf) => {
+    const editorial = EDITORIAL[etf.ticker];
+    if (!editorial) return etf;
+    return {
+      ...etf,
+      shortDescription: editorial.shortDescription,
+      pros: editorial.pros,
+      cons: editorial.cons,
+    };
+  });
+}
+
+async function loadEtfs(): Promise<EtfWithPeriodData[]> {
+  const raw = await fetchRemoteJsonOrFallback<EtfWithPeriodData[]>(
+    "data/etfs.json",
+    BUNDLED_ETFS,
+  );
+  return applyEditorial(raw);
+}
 
 const CATEGORY_DISPLAY_ORDER = [
   "broad_market",
@@ -50,28 +61,34 @@ function categoryRank(cat: string | null): number {
   return i === -1 ? 99 : i;
 }
 
-const ORDERED_ETFS = [...ETFS].sort((a, b) => {
-  const rA = categoryRank(a.category);
-  const rB = categoryRank(b.category);
-  if (rA !== rB) return rA - rB;
-  return (a.ticker ?? "").localeCompare(b.ticker ?? "");
-});
-
-const BY_TICKER: Map<string, EtfWithPeriodData> = new Map(
-  ORDERED_ETFS.map((e) => [e.ticker, e]),
-);
-
-export async function listEtfs(): Promise<EtfWithPeriodData[]> {
-  return ORDERED_ETFS;
+function order(list: EtfWithPeriodData[]): EtfWithPeriodData[] {
+  return [...list].sort((a, b) => {
+    const rA = categoryRank(a.category);
+    const rB = categoryRank(b.category);
+    if (rA !== rB) return rA - rB;
+    return (a.ticker ?? "").localeCompare(b.ticker ?? "");
+  });
 }
 
-/** Synchronous accessor — safe to use from client components. */
-export const ALL_ETFS_SYNC: EtfWithPeriodData[] = ORDERED_ETFS;
+export async function listEtfs(): Promise<EtfWithPeriodData[]> {
+  return order(await loadEtfs());
+}
+
+/**
+ * Synchronous accessor — uses the bundled snapshot only. Used by client
+ * components (CompareSelect dropdown) where a sync API is needed and a
+ * slightly stale list is fine. Server-rendered pages call `listEtfs()`
+ * which gets the fresh remote data.
+ */
+export const ALL_ETFS_SYNC: EtfWithPeriodData[] = order(
+  applyEditorial(BUNDLED_ETFS),
+);
 
 export async function getEtfByTicker(
   ticker: string,
 ): Promise<EtfWithPeriodData | null> {
-  return BY_TICKER.get(ticker) ?? null;
+  const list = await loadEtfs();
+  return list.find((e) => e.ticker === ticker) ?? null;
 }
 
 /** Categories in display order, with human-readable labels. */

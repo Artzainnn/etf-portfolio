@@ -3,7 +3,7 @@ import { StocksExplorer } from "@/components/stocks-explorer";
 
 export const dynamic = "force-dynamic";
 
-export default function StocksPage() {
-  const stocks = listStocks();
+export default async function StocksPage() {
+  const stocks = await listStocks();
   return <StocksExplorer stocks={stocks} />;
 }

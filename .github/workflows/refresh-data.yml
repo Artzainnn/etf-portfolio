@@ -38,7 +38,6 @@ jobs:
         run: npm run db:refresh-stocks
 
       - name: Commit fresh data if it changed
-        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -46,33 +45,7 @@ jobs:
             git add data/ public/data/
             git commit -m "chore: daily refresh of market data $(date -u +%Y-%m-%d)"
             git push
-            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Pushed. Live site will pick up the new data within ~30 min via the GitHub-raw fetch with Next.js revalidate."
           else
-            echo "No data changes — skipping commit + deploy."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No data changes — nothing to do."
           fi
-
-      - name: Install Vercel CLI
-        if: steps.commit.outputs.changed == 'true'
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel environment
-        if: steps.commit.outputs.changed == 'true'
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Build for Vercel
-        if: steps.commit.outputs.changed == 'true'
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Deploy to Vercel production
-        if: steps.commit.outputs.changed == 'true'
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

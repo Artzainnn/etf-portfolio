@@ -70,6 +70,12 @@ function periodToDays(period: Period): number | null {
 const CACHE = new Map<string, RawPriceFile>();
 const IN_FLIGHT = new Map<string, Promise<RawPriceFile>>();
 
+// We fetch price files from GitHub raw (main branch) so that daily data
+// refreshes appear without a Vercel redeploy. The fall-back path served
+// by Vercel is only used if the GitHub fetch fails.
+const REMOTE_PRICE_BASE =
+  "https://raw.githubusercontent.com/Artzainnn/etf-portfolio/main/public/data/prices";
+
 async function fetchRaw(ticker: string): Promise<RawPriceFile> {
   const cached = CACHE.get(ticker);
   if (cached) return cached;
@@ -78,11 +84,18 @@ async function fetchRaw(ticker: string): Promise<RawPriceFile> {
   if (existing) return existing;
 
   const promise = (async () => {
-    const res = await fetch(
-      `/data/prices/${encodeURIComponent(ticker)}.json`,
-      { cache: "force-cache" },
-    );
-    if (!res.ok) throw new Error(`Couldn't load price data for ${ticker}`);
+    const enc = encodeURIComponent(ticker);
+    let res: Response;
+    try {
+      res = await fetch(`${REMOTE_PRICE_BASE}/${enc}.json`, {
+        cache: "force-cache",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      // Fallback: the Vercel-bundled snapshot
+      res = await fetch(`/data/prices/${enc}.json`, { cache: "force-cache" });
+      if (!res.ok) throw new Error(`Couldn't load price data for ${ticker}`);
+    }
     const json = (await res.json()) as RawPriceFile;
     CACHE.set(ticker, json);
     IN_FLIGHT.delete(ticker);

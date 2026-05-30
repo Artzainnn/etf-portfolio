@@ -164,6 +164,8 @@ export function PriceChart({
             interval={0}
             tickLine={false}
             axisLine={false}
+            tickMargin={8}
+            padding={{ left: 6, right: 4 }}
             tick={{ fontSize: 10, fill: "currentColor" }}
             className="text-zinc-500"
           />
@@ -259,11 +261,13 @@ export function PriceChart({
             </span>
           )}
           <span className="text-zinc-400 dark:text-zinc-500">vs</span>
-          <StockLogo
-            ticker={compareTicker}
-            fallbackEmoji={compareBenchmark?.emoji ?? "📊"}
-            size={16}
-          />
+          <span
+            className="inline-flex shrink-0 items-center justify-center leading-none"
+            style={{ fontSize: 16 * 0.85, width: 16, height: 16 }}
+            aria-hidden
+          >
+            {compareBenchmark?.emoji ?? "📊"}
+          </span>
           <span className="truncate">
             {compareBenchmark?.label ?? compareTicker}
           </span>
