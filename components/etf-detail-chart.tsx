@@ -23,7 +23,7 @@ export function EtfDetailChart({
 
   return (
     <div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_140px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
         <PriceChart
           ticker={ticker}
           period={period}

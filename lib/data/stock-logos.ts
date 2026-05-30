@@ -185,6 +185,20 @@ export const STOCK_DOMAINS: Record<string, string> = {
   // Crypto-adjacent
   COIN: "coinbase.com",
   MSTR: "strategy.com",
+
+  // ─── ETF benchmarks (mapped to the index brand or issuer) ──
+  "CSPX.L": "spglobal.com", // S&P 500
+  "IWDA.L": "msci.com", // MSCI World
+  "SWRD.L": "msci.com",
+  "VWCE.DE": "ftserussell.com", // FTSE All-World
+  "SSAC.L": "msci.com", // MSCI ACWI
+  "EIMI.L": "msci.com", // MSCI EM
+  "IMEU.L": "msci.com", // MSCI Europe
+  "SJPA.L": "msci.com", // MSCI Japan
+  "CPXJ.L": "msci.com", // MSCI Pacific
+  "CNDX.L": "nasdaq.com", // Nasdaq 100
+  "AGGG.L": "bloomberg.com", // Bloomberg Global Aggregate
+  "SGLN.L": "lbma.org.uk", // Gold (LBMA)
 };
 
 export function primaryLogoUrl(ticker: string): string | null {

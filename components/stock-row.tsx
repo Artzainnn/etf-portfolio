@@ -196,7 +196,7 @@ export function StockRow({
 
           {/* Industry chips */}
           {stock.industries.length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-1.5">
+            <div className="mb-5 mt-3 flex flex-wrap gap-1.5">
               {stock.industries.map((ind) => {
                 const meta = INDUSTRY_LOOKUP.get(ind);
                 if (!meta) return null;
@@ -213,8 +213,8 @@ export function StockRow({
             </div>
           )}
 
-          {/* Chart + controls */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_120px]">
+          {/* Chart + controls — right column wider so 'S&P 500 (US)' isn't truncated */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_180px]">
             <PriceChart
               ticker={stock.ticker}
               period={period}

@@ -17,6 +17,7 @@ import {
   type PriceStats as ClientPriceStats,
 } from "@/lib/marketData/clientPrices";
 import { COMPARE_BENCHMARKS } from "@/lib/data/benchmarks";
+import { StockLogo } from "./stock-logo";
 
 export type Period = ClientPeriod;
 export type PriceStats = ClientPriceStats;
@@ -243,10 +244,20 @@ export function PriceChart({
           )}
         </ComposedChart>
       </ResponsiveContainer>
-      {compareLabel && (
-        <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-          <span className="inline-block h-1.5 w-3 rounded-sm align-middle bg-zinc-400" />{" "}
-          vs {compareLabel}
+      {compareLabel && compareTicker && (
+        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="inline-block h-1.5 w-3 rounded-sm bg-zinc-400" />
+          <span>vs</span>
+          <StockLogo
+            ticker={compareTicker}
+            fallbackEmoji={
+              compareLabel.match(/^\p{Extended_Pictographic}+/u)?.[0] ?? "📊"
+            }
+            size={18}
+          />
+          <span className="truncate">
+            {compareLabel.replace(/^\p{Extended_Pictographic}+\s*/u, "")}
+          </span>
         </div>
       )}
     </div>

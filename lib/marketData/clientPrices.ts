@@ -146,20 +146,24 @@ export async function getRawSeries(ticker: string): Promise<RawSeries | null> {
 }
 
 /**
- * Get a main series + optional comparison series, both normalized to 100
- * at their own first date within the period. The combined array uses main's
- * dates as the spine — compare value is undefined on dates that don't exist
- * in the compare series.
+ * Get a main series + optional comparison series. When a comparison is
+ * requested, both series are normalized to 100 at the **same** common
+ * start date (the later of the two first-dates within the period) so the
+ * lines are visually + numerically comparable. The total-return stat on
+ * `main` also reflects performance from that common start.
+ *
+ * When no comparison is requested, behaves as before: main is normalized
+ * to its own first date.
  */
 export async function getSeriesWithCompare(
   mainTicker: string,
   compareTicker: string | null,
   period: Period,
 ): Promise<ComparedSeriesResult | null> {
-  const main = await getPriceSeries(mainTicker, period);
-  if (!main) return null;
-
+  // No compare → existing single-series behaviour
   if (!compareTicker || compareTicker === mainTicker) {
+    const main = await getPriceSeries(mainTicker, period);
+    if (!main) return null;
     return {
       main,
       compare: null,
@@ -167,8 +171,18 @@ export async function getSeriesWithCompare(
     };
   }
 
-  const compare = await getPriceSeries(compareTicker, period);
-  if (!compare) {
+  // With compare → fetch raw series for both and align at common start
+  let mainRawFile: RawPriceFile;
+  let compareRawFile: RawPriceFile;
+  try {
+    [mainRawFile, compareRawFile] = await Promise.all([
+      fetchRaw(mainTicker),
+      fetchRaw(compareTicker),
+    ]);
+  } catch {
+    // Fall back to main-only behaviour if the compare fetch fails
+    const main = await getPriceSeries(mainTicker, period);
+    if (!main) return null;
     return {
       main,
       compare: null,
@@ -176,14 +190,98 @@ export async function getSeriesWithCompare(
     };
   }
 
-  const compareByDate = new Map(compare.points.map((p) => [p.date, p.value]));
-  const combined = main.points.map((p) => ({
-    date: p.date,
-    main: p.value,
-    compare: compareByDate.get(p.date),
-  }));
+  // Apply the period filter to both
+  const days = periodToDays(period);
+  const mainAll = mainRawFile.points;
+  const compareAll = compareRawFile.points;
+  if (mainAll.length === 0 || compareAll.length === 0) return null;
 
-  return { main, compare, combined };
+  const lastDate = mainAll[mainAll.length - 1][0];
+  const cutoff = days
+    ? new Date(new Date(lastDate).getTime() - days * 86400_000)
+        .toISOString()
+        .slice(0, 10)
+    : "";
+
+  const mainSliced = cutoff
+    ? mainAll.filter(([d]) => d >= cutoff)
+    : mainAll;
+  const compareSliced = cutoff
+    ? compareAll.filter(([d]) => d >= cutoff)
+    : compareAll;
+
+  if (mainSliced.length < 2 || compareSliced.length < 2) {
+    // Not enough overlap — return main-only
+    const main = await getPriceSeries(mainTicker, period);
+    if (!main) return null;
+    return {
+      main,
+      compare: null,
+      combined: main.points.map((p) => ({ date: p.date, main: p.value })),
+    };
+  }
+
+  // Common start = later of the two first-dates
+  const mainStart = mainSliced[0][0];
+  const compareStart = compareSliced[0][0];
+  const commonStart = mainStart > compareStart ? mainStart : compareStart;
+
+  // Slice both from the common start onward
+  const mainFromCommon = mainSliced.filter(([d]) => d >= commonStart);
+  const compareFromCommon = compareSliced.filter(([d]) => d >= commonStart);
+
+  if (mainFromCommon.length < 2 || compareFromCommon.length < 2) {
+    const main = await getPriceSeries(mainTicker, period);
+    if (!main) return null;
+    return {
+      main,
+      compare: null,
+      combined: main.points.map((p) => ({ date: p.date, main: p.value })),
+    };
+  }
+
+  const mainBase = mainFromCommon[0][1];
+  const compareBase = compareFromCommon[0][1];
+
+  // Map compare by date for the join
+  const compareByDate = new Map<string, number>();
+  for (const [d, sgd] of compareFromCommon) {
+    compareByDate.set(d, (sgd / compareBase) * 100);
+  }
+
+  // Build combined data and normalized main points (both 100 at commonStart)
+  const combined: { date: string; main: number; compare?: number }[] = [];
+  const mainNormalized: { date: string; value: number }[] = [];
+  for (const [d, sgd] of mainFromCommon) {
+    const v = (sgd / mainBase) * 100;
+    mainNormalized.push({ date: d, value: v });
+    combined.push({ date: d, main: v, compare: compareByDate.get(d) });
+  }
+
+  // Stats are computed on raw SGD values from the common start
+  const mainStats = computeStats(mainFromCommon);
+  const compareStats = computeStats(compareFromCommon);
+
+  return {
+    main: {
+      ticker: mainTicker,
+      nativeCurrency: mainRawFile.nativeCurrency,
+      baseCurrency: "SGD",
+      points: mainNormalized,
+      stats: mainStats,
+    },
+    compare: {
+      ticker: compareTicker,
+      nativeCurrency: compareRawFile.nativeCurrency,
+      baseCurrency: "SGD",
+      points: compareFromCommon.map(([d, sgd]) => ({
+        date: d,
+        value: (sgd / compareBase) * 100,
+      })),
+      stats: compareStats,
+    },
+    combined,
+  };
 }
 
 function computeStats(points: [string, number][]): PriceStats {

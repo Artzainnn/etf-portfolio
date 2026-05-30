@@ -226,7 +226,7 @@ export function EtfRow({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_120px]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_180px]">
             <PriceChart
               ticker={etf.ticker}
               period={period}
