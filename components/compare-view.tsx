@@ -74,10 +74,11 @@ function resolvePortfolio(
   stored: StoredPortfolio,
   color: string,
 ): ResolvedPortfolio {
-  const etfsById = new Map(ALL_ETFS_SYNC.map((e) => [e.id, e]));
+  const etfsByTicker = new Map(ALL_ETFS_SYNC.map((e) => [e.ticker, e]));
   const allocations = stored.allocations
     .map((a) => {
-      const etf = etfsById.get(a.etfId);
+      if (!a.ticker) return null;
+      const etf = etfsByTicker.get(a.ticker);
       if (!etf) return null;
       return {
         ticker: etf.ticker,

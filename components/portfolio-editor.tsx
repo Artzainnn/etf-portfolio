@@ -18,7 +18,6 @@ import { PortfolioBacktest } from "./portfolio-backtest";
 import { weightedAnnualFee } from "@/lib/simulation/calculator";
 
 interface AllocationState {
-  etfId: number;
   ticker: string;
   emoji: string;
   friendlyName: string;
@@ -52,7 +51,6 @@ function bestExpectedReturn(etf: {
 
 function allocationStateFor(etf: Etf, percentage: number): AllocationState {
   return {
-    etfId: etf.id,
     ticker: etf.ticker,
     emoji: getEtfEmoji(etf.ticker),
     friendlyName: etf.friendlyName ?? etf.name,
@@ -72,8 +70,8 @@ export function PortfolioEditor({
   allEtfs: Etf[];
 }) {
   const router = useRouter();
-  const etfsById = useMemo(
-    () => new Map(allEtfs.map((e) => [e.id, e])),
+  const etfsByTicker = useMemo(
+    () => new Map(allEtfs.map((e) => [e.ticker, e])),
     [allEtfs],
   );
 
@@ -105,14 +103,15 @@ export function PortfolioEditor({
     setAllocations(
       stored.allocations
         .map((a) => {
-          const etf = etfsById.get(a.etfId);
+          if (!a.ticker) return null;
+          const etf = etfsByTicker.get(a.ticker);
           if (!etf) return null;
           return allocationStateFor(etf, a.percentage);
         })
         .filter((a): a is AllocationState => a !== null),
     );
     setLoaded(true);
-  }, [portfolioId, etfsById]);
+  }, [portfolioId, etfsByTicker]);
 
   // Auto-save (debounced 500ms)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -135,7 +134,7 @@ export function PortfolioEditor({
           durationYears,
           inflationRate,
           allocations: allocations.map((a) => ({
-            etfId: a.etfId,
+            ticker: a.ticker,
             percentage: a.percentage,
           })),
         });
@@ -164,23 +163,23 @@ export function PortfolioEditor({
   const totalAllocation = allocations.reduce((s, a) => s + a.percentage, 0);
   const inRange = totalAllocation >= 99 && totalAllocation <= 101;
 
-  const setAllocationPct = useCallback((etfId: number, pct: number) => {
+  const setAllocationPct = useCallback((ticker: string, pct: number) => {
     setAllocations((prev) =>
       prev.map((a) =>
-        a.etfId === etfId
+        a.ticker === ticker
           ? { ...a, percentage: Math.max(0, Math.min(100, pct)) }
           : a,
       ),
     );
   }, []);
 
-  const removeAllocation = useCallback((etfId: number) => {
-    setAllocations((prev) => prev.filter((a) => a.etfId !== etfId));
+  const removeAllocation = useCallback((ticker: string) => {
+    setAllocations((prev) => prev.filter((a) => a.ticker !== ticker));
   }, []);
 
   const addAllocation = useCallback((etf: Etf) => {
     setAllocations((prev) => {
-      if (prev.some((a) => a.etfId === etf.id)) return prev;
+      if (prev.some((a) => a.ticker === etf.ticker)) return prev;
       const defaultPct = prev.length === 0 ? 100 : 10;
       return [...prev, allocationStateFor(etf, defaultPct)];
     });
@@ -373,10 +372,10 @@ export function PortfolioEditor({
             <ul className="space-y-3">
               {allocations.map((a) => (
                 <AllocationRow
-                  key={a.etfId}
+                  key={a.ticker}
                   allocation={a}
-                  onChange={(pct) => setAllocationPct(a.etfId, pct)}
-                  onRemove={() => removeAllocation(a.etfId)}
+                  onChange={(pct) => setAllocationPct(a.ticker, pct)}
+                  onRemove={() => removeAllocation(a.ticker)}
                 />
               ))}
             </ul>
@@ -384,7 +383,7 @@ export function PortfolioEditor({
 
           <AddEtfPicker
             allEtfs={allEtfs}
-            selectedIds={new Set(allocations.map((a) => a.etfId))}
+            selectedTickers={new Set(allocations.map((a) => a.ticker))}
             onAdd={addAllocation}
           />
 
@@ -452,7 +451,7 @@ export function PortfolioEditor({
                       .filter((a) => a.percentage > 0)
                       .map((a) => (
                         <div
-                          key={a.etfId}
+                          key={a.ticker}
                           className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400"
                         >
                           <span className="truncate">
@@ -589,11 +588,11 @@ function AllocationRow({
 
 function AddEtfPicker({
   allEtfs,
-  selectedIds,
+  selectedTickers,
   onAdd,
 }: {
   allEtfs: Etf[];
-  selectedIds: Set<number>;
+  selectedTickers: Set<string>;
   onAdd: (etf: Etf) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -613,7 +612,7 @@ function AddEtfPicker({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allEtfs
-      .filter((e) => !selectedIds.has(e.id))
+      .filter((e) => !selectedTickers.has(e.ticker))
       .filter((e) => (favoritesOnly ? favorites.has(e.ticker) : true))
       .filter((e) => {
         if (!q) return true;
@@ -630,7 +629,7 @@ function AddEtfPicker({
         return hay.includes(q);
       })
       .slice(0, 50);
-  }, [allEtfs, selectedIds, query, favoritesOnly, favorites]);
+  }, [allEtfs, selectedTickers, query, favoritesOnly, favorites]);
 
   if (!open) {
     return (

@@ -3,9 +3,29 @@
  * portfolios live entirely in the browser, no server, no auth needed.
  *
  * All functions are SSR-safe: they return defaults when window is undefined.
+ *
+ * Allocations reference funds by **ticker** (stable forever). Older saved
+ * portfolios referenced a numeric `etfId` that broke when the data pipeline
+ * changed — `migrateAllocations()` translates those once, transparently.
  */
 
+import {
+  LEGACY_ID_TO_TICKER,
+  CURRENT_ID_TO_TICKER,
+  MAX_NEW_ID,
+  ID_SWITCH_CUTOFF_MS,
+} from "@/lib/data/etf-id-migration";
+
 const STORAGE_KEY = "etfp:portfolios:v1";
+const BACKUP_KEY = "etfp:portfolios:pre-ticker-migration-backup";
+
+export interface Allocation {
+  /** Stable fund identity. Always present after migration. */
+  ticker?: string;
+  /** Legacy numeric id — only on un-migrated portfolios. */
+  etfId?: number;
+  percentage: number;
+}
 
 export interface StoredPortfolio {
   id: string;
@@ -16,13 +36,60 @@ export interface StoredPortfolio {
   durationYears: number;
   inflationRate: number;
   reinvestDividends: boolean;
-  allocations: { etfId: number; percentage: number }[];
+  allocations: Allocation[];
   createdAt: string;
   updatedAt: string;
 }
 
 function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+/**
+ * Translate a legacy numeric etfId to a ticker, choosing between the OLD
+ * (Postgres) and NEW (static) id schemes:
+ *   - id > MAX_NEW_ID  → only exists in the old scheme.
+ *   - both schemes map to the same ticker → unambiguous.
+ *   - they disagree (only id 37: AGGG.L vs CSKR.L) → break the tie with the
+ *     portfolio's updatedAt vs the moment the live site switched schemes.
+ */
+function etfIdToTicker(etfId: number, updatedAtMs: number): string | null {
+  const oldTicker = LEGACY_ID_TO_TICKER[etfId] ?? null;
+  const newTicker = CURRENT_ID_TO_TICKER[etfId] ?? null;
+
+  if (etfId > MAX_NEW_ID) return oldTicker;
+  if (oldTicker && newTicker && oldTicker === newTicker) return oldTicker;
+  if (!oldTicker) return newTicker;
+  if (!newTicker) return oldTicker;
+  // Ambiguous: rely on when the portfolio was last saved.
+  return updatedAtMs < ID_SWITCH_CUTOFF_MS ? oldTicker : newTicker;
+}
+
+/** Convert any legacy etfId allocations to ticker-based, in place. */
+function migrateAllocations(list: StoredPortfolio[]): boolean {
+  let changed = false;
+  for (const p of list) {
+    const updatedAtMs = Date.parse(p.updatedAt ?? "") || Date.now();
+    if (!Array.isArray(p.allocations)) continue;
+    const migrated: Allocation[] = [];
+    for (const a of p.allocations) {
+      if (a.ticker) {
+        migrated.push({ ticker: a.ticker, percentage: a.percentage });
+        continue;
+      }
+      if (a.etfId == null) continue;
+      const ticker = etfIdToTicker(a.etfId, updatedAtMs);
+      if (ticker) {
+        migrated.push({ ticker, percentage: a.percentage });
+        changed = true;
+      } else {
+        // No mapping (e.g. a fund that no longer exists) — drop it.
+        changed = true;
+      }
+    }
+    p.allocations = migrated;
+  }
+  return changed;
 }
 
 function readAll(): StoredPortfolio[] {
@@ -32,7 +99,24 @@ function readAll(): StoredPortfolio[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed as StoredPortfolio[];
+    const list = parsed as StoredPortfolio[];
+
+    // One-time migration: numeric etfId → ticker. Back up the raw data the
+    // first time so nothing is irreversibly lost.
+    const needsMigration = list.some(
+      (p) =>
+        Array.isArray(p.allocations) &&
+        p.allocations.some((a) => a.etfId != null && !a.ticker),
+    );
+    if (needsMigration) {
+      if (!window.localStorage.getItem(BACKUP_KEY)) {
+        window.localStorage.setItem(BACKUP_KEY, raw);
+      }
+      const changed = migrateAllocations(list);
+      if (changed) writeAll(list);
+    }
+
+    return list;
   } catch {
     return [];
   }
