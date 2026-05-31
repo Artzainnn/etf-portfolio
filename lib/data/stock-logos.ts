@@ -186,6 +186,21 @@ export const STOCK_DOMAINS: Record<string, string> = {
   COIN: "coinbase.com",
   MSTR: "strategy.com",
 
+  // ─── France large-caps (CAC 40) ───────────────────────────
+  "AIR.PA": "airbus.com",
+  "SAF.PA": "safran-group.com",
+  "HO.PA": "thalesgroup.com",
+  "SU.PA": "se.com", // Schneider Electric
+  "AI.PA": "airliquide.com",
+  "DG.PA": "vinci.com",
+  "OR.PA": "loreal.com",
+  "RI.PA": "pernod-ricard.com",
+  "SAN.PA": "sanofi.com",
+  "DSY.PA": "3ds.com", // Dassault Systèmes
+  "CAP.PA": "capgemini.com",
+  "BNP.PA": "group.bnpparibas",
+  "CS.PA": "axa.com", // AXA
+
   // ─── ETF benchmarks (mapped to the index brand or issuer) ──
   "CSPX.L": "spglobal.com", // S&P 500
   "IWDA.L": "msci.com", // MSCI World
