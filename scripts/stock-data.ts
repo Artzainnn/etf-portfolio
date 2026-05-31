@@ -1527,4 +1527,13 @@ export const SEED_STOCKS: SeedStock[] = [
     industries: ["finance"],
     country: "FR",
   },
+  {
+    ticker: "OVH.PA",
+    name: "OVH Groupe SA",
+    friendlyName: "OVHcloud",
+    shortDescription:
+      "France's largest cloud and web-hosting provider — a European, 'sovereign' alternative to AWS and Azure.",
+    industries: ["saas"],
+    country: "FR",
+  },
 ];

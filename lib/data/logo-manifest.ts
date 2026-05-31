@@ -120,6 +120,7 @@ export const LOGO_FILES: Record<string, string> = {
   "OKTA": "OKTA.ico",
   "OR.PA": "OR.PA.jpg",
   "ORCL": "ORCL.ico",
+  "OVH.PA": "OVH.PA.ico",
   "OXY": "OXY.png",
   "PFE": "PFE.png",
   "PLTR": "PLTR.ico",

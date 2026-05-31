@@ -188,6 +188,7 @@ export const STOCK_DOMAINS: Record<string, string> = {
 
   // ─── France large-caps (CAC 40) ───────────────────────────
   "AC.PA": "group.accor.com", // Accor
+  "OVH.PA": "ovhcloud.com", // OVHcloud
   "AIR.PA": "airbus.com",
   "SAF.PA": "safran-group.com",
   "HO.PA": "thalesgroup.com",
