@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Info, Wallet } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Info, Plus, Search, X } from "lucide-react";
 import {
-  Area,
   CartesianGrid,
   ComposedChart,
   Legend,
@@ -22,12 +20,12 @@ import {
 import { ALL_ETFS_SYNC } from "@/lib/data/etfs";
 import { ALL_STOCKS_SYNC, annualizedStockReturn } from "@/lib/data/stocks";
 import { resolveLeaves } from "@/lib/portfolio/composition";
-import { getCompareLabel } from "@/lib/data/compare";
-import { getEtfEmoji } from "@/lib/data/emoji";
-import { CompareSelect } from "./compare-select";
-import { DEFAULT_COMPARE_TICKER } from "@/lib/data/benchmarks";
 import {
-  computeBenchmarkSeries,
+  COMPARE_OPTIONS,
+  getCompareMeta,
+  type CompareGroup,
+} from "@/lib/data/compare";
+import {
   computePortfolioBacktest,
   type BacktestSeries,
 } from "@/lib/portfolio/backtest";
@@ -39,10 +37,14 @@ import {
 } from "@/lib/simulation/calculator";
 import type { Period } from "@/lib/marketData/clientPrices";
 
-interface ResolvedPortfolio {
+interface ResolvedItem {
+  /** Safe, unique key usable as a Recharts dataKey suffix. */
   id: string;
   name: string;
   color: string;
+  /** "Portfolio" | "Benchmark" | "Fund" | "Stock" */
+  badge: string;
+  emoji: string;
   allocations: {
     ticker: string;
     friendlyName: string;
@@ -52,7 +54,9 @@ interface ResolvedPortfolio {
   }[];
 }
 
-const PORTFOLIO_COLORS = ["#10b981", "#3b82f6", "#f59e0b"]; // emerald / blue / amber
+// emerald / blue / amber / violet
+const ITEM_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#a855f7"];
+const MAX_ITEMS = 4;
 const PERIODS: Period[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "Max"];
 
 function bestExpectedReturn(etf: {
@@ -60,34 +64,35 @@ function bestExpectedReturn(etf: {
   return3YAnnualized?: string | null;
   return1Y?: string | null;
 }): number | null {
-  const v5 = etf.return5YAnnualized
-    ? parseFloat(etf.return5YAnnualized)
-    : null;
+  const v5 = etf.return5YAnnualized ? parseFloat(etf.return5YAnnualized) : null;
   if (v5 != null && isFinite(v5)) return v5;
-  const v3 = etf.return3YAnnualized
-    ? parseFloat(etf.return3YAnnualized)
-    : null;
+  const v3 = etf.return3YAnnualized ? parseFloat(etf.return3YAnnualized) : null;
   if (v3 != null && isFinite(v3)) return v3;
   const v1 = etf.return1Y ? parseFloat(etf.return1Y) : null;
   if (v1 != null && isFinite(v1)) return v1;
   return null;
 }
 
-const COMPARE_ETFS_BY_TICKER = new Map(
-  ALL_ETFS_SYNC.map((e) => [e.ticker, e]),
-);
+const COMPARE_ETFS_BY_TICKER = new Map(ALL_ETFS_SYNC.map((e) => [e.ticker, e]));
 const COMPARE_STOCKS_BY_TICKER = new Map(
   ALL_STOCKS_SYNC.map((s) => [s.ticker, s]),
 );
 
-function resolvePortfolio(
+/**
+ * A comparison item is keyed as either:
+ *   - "p:<portfolioId>"  → one of the user's saved portfolios
+ *   - "t:<ticker>"       → a single ETF or stock (a benchmark is just an ETF)
+ */
+function safeId(key: string): string {
+  return key.replace(/[^a-z0-9]/gi, "_");
+}
+
+function resolvePortfolioAllocations(
   stored: StoredPortfolio,
-  color: string,
   getPortfolioById: (id: string) => StoredPortfolio | null,
-): ResolvedPortfolio {
-  // Flatten ETFs, stocks, and nested portfolios into leaf holdings.
+): ResolvedItem["allocations"] {
   const leaves = resolveLeaves(stored.allocations, getPortfolioById);
-  const allocations = leaves
+  return leaves
     .map((l) => {
       if (l.kind === "etf") {
         const etf = COMPARE_ETFS_BY_TICKER.get(l.ticker);
@@ -110,43 +115,107 @@ function resolvePortfolio(
         expectedReturn: annualizedStockReturn(s.periodReturns),
       };
     })
-    .filter((a): a is ResolvedPortfolio["allocations"][number] => a !== null);
+    .filter((a): a is ResolvedItem["allocations"][number] => a !== null);
+}
 
-  return {
-    id: stored.id,
-    name: stored.name,
-    color,
-    allocations,
-  };
+function resolveItem(
+  key: string,
+  color: string,
+  getPortfolioById: (id: string) => StoredPortfolio | null,
+): ResolvedItem | null {
+  if (key.startsWith("p:")) {
+    const p = getPortfolioById(key.slice(2));
+    if (!p) return null;
+    return {
+      id: safeId(key),
+      name: p.name,
+      color,
+      badge: "Portfolio",
+      emoji: "🧺",
+      allocations: resolvePortfolioAllocations(p, getPortfolioById),
+    };
+  }
+  const ticker = key.slice(2);
+  const meta = getCompareMeta(ticker);
+  const etf = COMPARE_ETFS_BY_TICKER.get(ticker);
+  if (etf) {
+    return {
+      id: safeId(key),
+      name: meta?.label ?? etf.friendlyName ?? etf.name,
+      color,
+      badge: meta?.group === "Benchmarks" ? "Benchmark" : "Fund",
+      emoji: meta?.emoji ?? "📊",
+      allocations: [
+        {
+          ticker,
+          friendlyName: etf.friendlyName ?? etf.name,
+          percentage: 100,
+          ter: etf.ter ? parseFloat(etf.ter) : null,
+          expectedReturn: bestExpectedReturn(etf),
+        },
+      ],
+    };
+  }
+  const s = COMPARE_STOCKS_BY_TICKER.get(ticker);
+  if (s) {
+    return {
+      id: safeId(key),
+      name: meta?.label ?? s.friendlyName,
+      color,
+      badge: "Stock",
+      emoji: meta?.emoji ?? "📊",
+      allocations: [
+        {
+          ticker,
+          friendlyName: s.friendlyName,
+          percentage: 100,
+          ter: 0,
+          expectedReturn: annualizedStockReturn(s.periodReturns),
+        },
+      ],
+    };
+  }
+  return null;
 }
 
 export function CompareView() {
   const [portfolios, setPortfolios] = useState<StoredPortfolio[] | null>(null);
-  const [slotIds, setSlotIds] = useState<string[]>(["", "", ""]);
-  const [benchmark, setBenchmark] = useState<string>(DEFAULT_COMPARE_TICKER);
+  const [keys, setKeys] = useState<string[]>([]);
 
   useEffect(() => {
     const list = listPortfolios();
     setPortfolios(list);
-    if (list.length >= 2) {
-      setSlotIds([list[0].id, list[1].id, ""]);
-    } else if (list.length === 1) {
-      setSlotIds([list[0].id, "", ""]);
+    // Sensible default: the first portfolio(s), topped up with benchmarks so
+    // there's always at least two lines to compare — even with no portfolios.
+    const init: string[] = [];
+    if (list[0]) init.push(`p:${list[0].id}`);
+    if (list[1]) init.push(`p:${list[1].id}`);
+    for (const t of ["CSPX.L", "IWDA.L"]) {
+      if (init.length >= 2) break;
+      init.push(`t:${t}`);
     }
+    setKeys(init.slice(0, MAX_ITEMS));
   }, []);
 
-  const resolved: ResolvedPortfolio[] = useMemo(() => {
+  const portfoliosById = useMemo(
+    () => new Map((portfolios ?? []).map((p) => [p.id, p])),
+    [portfolios],
+  );
+
+  const resolved: ResolvedItem[] = useMemo(() => {
     if (!portfolios) return [];
-    const byId = new Map(portfolios.map((p) => [p.id, p]));
-    const getById = (id: string): StoredPortfolio | null => byId.get(id) ?? null;
-    return slotIds
-      .map((id, idx) => {
-        const p = id ? byId.get(id) : undefined;
-        if (!p) return null;
-        return resolvePortfolio(p, PORTFOLIO_COLORS[idx], getById);
-      })
-      .filter((p): p is ResolvedPortfolio => p !== null);
-  }, [portfolios, slotIds]);
+    const getById = (id: string) => portfoliosById.get(id) ?? null;
+    return keys
+      .map((key, idx) => resolveItem(key, ITEM_COLORS[idx], getById))
+      .filter((r): r is ResolvedItem => r !== null);
+  }, [portfolios, portfoliosById, keys]);
+
+  function addKey(key: string) {
+    setKeys((prev) => (prev.includes(key) || prev.length >= MAX_ITEMS ? prev : [...prev, key]));
+  }
+  function removeKey(key: string) {
+    setKeys((prev) => prev.filter((k) => k !== key));
+  }
 
   if (portfolios === null) {
     return (
@@ -156,93 +225,243 @@ export function CompareView() {
     );
   }
 
-  if (portfolios.length === 0) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-2xl font-bold tracking-tight">Compare portfolios</h1>
-        <div className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-12 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
-          <Wallet className="mx-auto h-10 w-10 text-zinc-400" />
-          <h2 className="mt-3 text-base font-medium text-zinc-900 dark:text-zinc-100">
-            You don't have any portfolios yet
-          </h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Create at least two portfolios first, then come back here to put
-            them side-by-side.
-          </p>
-          <Link
-            href="/portfolios"
-            className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Go to Portfolio Builder
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Compare portfolios</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Compare</h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Pick up to 3 of your portfolios and an optional benchmark, then see
-          how they would have performed historically and how they could grow.
+          Put up to {MAX_ITEMS} things side-by-side — any mix of your
+          portfolios, funds, and individual stocks. See how they would have
+          performed in the past and how they could grow.
         </p>
       </div>
 
-      {/* Slot pickers */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {slotIds.map((slotId, idx) => (
-            <div key={idx}>
-              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: PORTFOLIO_COLORS[idx] }}
-                />
-                Portfolio {idx + 1}
-              </div>
-              <select
-                value={slotId}
-                onChange={(e) =>
-                  setSlotIds((prev) => {
-                    const next = [...prev];
-                    next[idx] = e.target.value;
-                    return next;
-                  })
-                }
-                className="w-full appearance-none rounded-md border border-zinc-300 bg-white py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-200 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:ring-zinc-700"
-              >
-                <option value="">— None</option>
-                {portfolios.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Benchmark
-          </div>
-          <CompareSelect value={benchmark} onChange={setBenchmark} />
+      {/* Selected items + add */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-center gap-2">
+          {keys.map((key, idx) => {
+            const item = resolved.find((r) => r.id === safeId(key));
+            const color = ITEM_COLORS[idx];
+            return (
+              <SelectedChip
+                key={key}
+                color={color}
+                emoji={item?.emoji ?? "📊"}
+                name={item?.name ?? "(unavailable)"}
+                badge={item?.badge ?? ""}
+                onRemove={() => removeKey(key)}
+              />
+            );
+          })}
+          {keys.length < MAX_ITEMS && (
+            <ComparisonPicker
+              portfolios={portfolios}
+              excludeKeys={new Set(keys)}
+              onAdd={addKey}
+            />
+          )}
         </div>
       </div>
 
       {resolved.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-12 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400">
-          Pick at least one portfolio above.
+          Add at least one investment above to compare.
         </div>
       ) : (
         <>
-          <HistoryComparison
-            portfolios={resolved}
-            benchmark={benchmark || null}
-          />
-          <ProjectionComparison portfolios={resolved} />
+          <HistoryComparison items={resolved} />
+          <ProjectionComparison items={resolved} />
         </>
+      )}
+    </div>
+  );
+}
+
+function SelectedChip({
+  color,
+  emoji,
+  name,
+  badge,
+  onRemove,
+}: {
+  color: string;
+  emoji: string;
+  name: string;
+  badge: string;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white py-1 pl-2 pr-1 text-xs dark:border-zinc-700 dark:bg-zinc-950">
+      <span
+        className="inline-block h-2 w-2 shrink-0 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <span aria-hidden>{emoji}</span>
+      <span className="max-w-[180px] truncate font-medium text-zinc-800 dark:text-zinc-200">
+        {name}
+      </span>
+      {badge && (
+        <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+          {badge}
+        </span>
+      )}
+      <button
+        onClick={onRemove}
+        className="ml-0.5 rounded-full p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        aria-label={`Remove ${name}`}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
+
+interface PickerOption {
+  key: string;
+  emoji: string;
+  label: string;
+  ticker?: string;
+  group: "Your portfolios" | CompareGroup;
+}
+
+function ComparisonPicker({
+  portfolios,
+  excludeKeys,
+  onAdd,
+}: {
+  portfolios: StoredPortfolio[];
+  excludeKeys: Set<string>;
+  onAdd: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const allOptions: PickerOption[] = useMemo(
+    () => [
+      ...portfolios.map((p) => ({
+        key: `p:${p.id}`,
+        emoji: "🧺",
+        label: p.name,
+        group: "Your portfolios" as const,
+      })),
+      ...COMPARE_OPTIONS.map((o) => ({
+        key: `t:${o.ticker}`,
+        emoji: o.emoji,
+        label: o.label,
+        ticker: o.ticker,
+        group: o.group,
+      })),
+    ],
+    [portfolios],
+  );
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const order: PickerOption["group"][] = [
+      "Your portfolios",
+      "Benchmarks",
+      "Funds",
+      "Stocks",
+    ];
+    const buckets = new Map<string, PickerOption[]>();
+    for (const o of allOptions) {
+      if (excludeKeys.has(o.key)) continue;
+      if (q && !`${o.label} ${o.ticker ?? ""}`.toLowerCase().includes(q)) continue;
+      const arr = buckets.get(o.group) ?? [];
+      if (arr.length < 50) {
+        arr.push(o);
+        buckets.set(o.group, arr);
+      }
+    }
+    return order
+      .map((g) => ({ group: g, items: buckets.get(g) ?? [] }))
+      .filter((b) => b.items.length > 0);
+  }, [allOptions, excludeKeys, query]);
+
+  function pick(key: string) {
+    onAdd(key);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div ref={rootRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add to compare
+      </button>
+
+      {open && (
+        <div className="absolute left-0 z-30 mt-1 w-72 max-w-[85vw] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="relative border-b border-zinc-100 p-2 dark:border-zinc-800">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="search"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search portfolios, funds, stocks…"
+              className="w-full rounded-md border border-zinc-300 bg-white py-1.5 pl-8 pr-2 text-xs focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
+            />
+          </div>
+          <ul role="listbox" className="max-h-72 overflow-y-auto py-1 text-xs">
+            {groups.length === 0 ? (
+              <li className="px-3 py-4 text-center text-zinc-500">No matches.</li>
+            ) : (
+              groups.map(({ group, items }) => (
+                <li key={group}>
+                  <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                    {group}
+                  </div>
+                  <ul>
+                    {items.map((o) => (
+                      <li key={o.key}>
+                        <button
+                          type="button"
+                          onClick={() => pick(o.key)}
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                        >
+                          <span className="w-4 shrink-0 text-center" aria-hidden>
+                            {o.emoji}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                          {o.ticker && (
+                            <span className="shrink-0 font-mono text-[10px] text-zinc-400">
+                              {o.ticker}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
       )}
     </div>
   );
@@ -252,26 +471,18 @@ export function CompareView() {
 
 interface HistoryDatapoint {
   date: string;
-  values: Record<string, number | undefined>; // key: 'p1' | 'p2' | 'p3' | 'bench'
+  values: Record<string, number | undefined>; // key: `p_<id>`
 }
 
-function HistoryComparison({
-  portfolios,
-  benchmark,
-}: {
-  portfolios: ResolvedPortfolio[];
-  benchmark: string | null;
-}) {
+function HistoryComparison({ items }: { items: ResolvedItem[] }) {
   const [period, setPeriod] = useState<Period>("1Y");
   const [chartData, setChartData] = useState<HistoryDatapoint[] | null>(null);
   const [results, setResults] = useState<{
-    portfolioReturns: Record<string, number>;
-    benchmarkReturn: number | null;
-    earliestStart: string | null;
+    returns: Record<string, number>;
     joinEvents: {
-      portfolioId: string;
-      portfolioName: string;
-      portfolioColor: string;
+      itemId: string;
+      itemName: string;
+      itemColor: string;
       ticker: string;
       date: string;
       friendlyName: string;
@@ -281,7 +492,7 @@ function HistoryComparison({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (portfolios.length === 0) {
+    if (items.length === 0) {
       setChartData(null);
       setResults(null);
       return;
@@ -290,24 +501,24 @@ function HistoryComparison({
     setLoading(true);
 
     (async () => {
-      const seriesByPortfolio = await Promise.all(
-        portfolios.map(async (p) => {
+      const seriesByItem = await Promise.all(
+        items.map(async (it) => {
           const series = await computePortfolioBacktest(
-            p.allocations.map((a) => ({
+            it.allocations.map((a) => ({
               ticker: a.ticker,
               friendlyName: a.friendlyName,
               percentage: a.percentage,
             })),
             period,
           );
-          return { portfolio: p, series };
+          return { item: it, series };
         }),
       );
 
       if (cancelled) return;
 
-      const valid = seriesByPortfolio.filter(
-        (s): s is { portfolio: ResolvedPortfolio; series: BacktestSeries } =>
+      const valid = seriesByItem.filter(
+        (s): s is { item: ResolvedItem; series: BacktestSeries } =>
           s.series !== null,
       );
       if (valid.length === 0) {
@@ -317,66 +528,35 @@ function HistoryComparison({
         return;
       }
 
-      // Use the longest series as the date spine
+      // Use the longest series as the date spine.
       const longest = valid.reduce((a, b) =>
         a.series.points.length >= b.series.points.length ? a : b,
       );
       const dateSpine = longest.series.points.map((p) => p.date);
 
-      // Find earliest start across all series (to align benchmark)
-      const earliestStart = valid.reduce(
-        (acc, s) =>
-          !acc || s.series.effectiveStart < acc ? s.series.effectiveStart : acc,
-        "",
-      );
-      const latestEnd = dateSpine[dateSpine.length - 1];
-
-      // Map each portfolio's points to its date for fast lookup
-      const portfolioPointMaps = valid.map((s) => ({
-        portfolio: s.portfolio,
+      const itemPointMaps = valid.map((s) => ({
+        item: s.item,
         map: new Map(s.series.points.map((p) => [p.date, p.value])),
       }));
 
-      // Optional benchmark
-      let benchmarkMap: Map<string, number> | null = null;
-      let benchmarkReturn: number | null = null;
-      if (benchmark) {
-        const b = await computeBenchmarkSeries(
-          benchmark,
-          earliestStart,
-          latestEnd,
-        );
-        if (b) {
-          benchmarkMap = b.points;
-          benchmarkReturn = b.totalReturn;
-        }
-      }
-
       const combined: HistoryDatapoint[] = dateSpine.map((date) => {
         const values: HistoryDatapoint["values"] = {};
-        for (const { portfolio, map } of portfolioPointMaps) {
+        for (const { item, map } of itemPointMaps) {
           const v = map.get(date);
-          if (v != null) values[`p_${portfolio.id}`] = v;
-        }
-        if (benchmarkMap) {
-          const v = benchmarkMap.get(date);
-          if (v != null) values["bench"] = v;
+          if (v != null) values[`p_${item.id}`] = v;
         }
         return { date, values };
       });
 
-      // Total returns
-      const portfolioReturns: Record<string, number> = {};
-      for (const { portfolio, series } of valid) {
-        portfolioReturns[portfolio.id] = series.totalReturn;
-      }
-      // Collect all join events with their portfolio + sort by date
+      const returns: Record<string, number> = {};
+      for (const { item, series } of valid) returns[item.id] = series.totalReturn;
+
       const joinEvents = valid
         .flatMap((s) =>
           s.series.joinEvents.map((e) => ({
-            portfolioId: s.portfolio.id,
-            portfolioName: s.portfolio.name,
-            portfolioColor: s.portfolio.color,
+            itemId: s.item.id,
+            itemName: s.item.name,
+            itemColor: s.item.color,
             ticker: e.ticker,
             date: e.date,
             friendlyName: e.friendlyName,
@@ -386,19 +566,14 @@ function HistoryComparison({
         .sort((a, b) => a.date.localeCompare(b.date));
 
       setChartData(combined);
-      setResults({
-        portfolioReturns,
-        benchmarkReturn,
-        earliestStart,
-        joinEvents,
-      });
+      setResults({ returns, joinEvents });
       setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [portfolios, period, benchmark]);
+  }, [items, period]);
 
   return (
     <section className="mt-8">
@@ -434,36 +609,27 @@ function HistoryComparison({
           </div>
         ) : chartData == null || chartData.length < 2 ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-            Couldn't compute backtest for this combination.
+            Couldn't compute a backtest for this combination.
           </div>
         ) : (
           <HistoryChart
             data={chartData}
-            portfolios={portfolios}
-            benchmarkLabel={benchmark ? getCompareLabel(benchmark) : null}
+            items={items}
             joinEvents={results?.joinEvents ?? []}
           />
         )}
       </div>
 
-      {results && portfolios.length > 0 && (
+      {results && items.length > 0 && (
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {portfolios.map((p) => (
+          {items.map((it) => (
             <ReturnTile
-              key={p.id}
-              label={p.name}
-              value={results.portfolioReturns[p.id]}
-              color={p.color}
+              key={it.id}
+              label={it.name}
+              value={results.returns[it.id]}
+              color={it.color}
             />
           ))}
-          {results.benchmarkReturn != null && (
-            <ReturnTile
-              label="Benchmark"
-              value={results.benchmarkReturn}
-              color="#a1a1aa"
-              muted
-            />
-          )}
         </div>
       )}
 
@@ -472,26 +638,24 @@ function HistoryComparison({
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <div>
             <div>
-              Some funds launched after the chart starts. Their target weight
-              is spread across the rest of the portfolio until they exist
-              (markers on the chart show when each one joined).
+              Some funds launched after the chart starts. Their target weight is
+              spread across the rest until they exist (markers show when each
+              one joined).
             </div>
             <ul className="mt-2 space-y-0.5">
               {results.joinEvents.map((e) => (
                 <li
-                  key={`${e.portfolioId}-${e.ticker}`}
+                  key={`${e.itemId}-${e.ticker}`}
                   className="flex items-center gap-1.5"
                 >
                   <span
                     className="inline-block h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: e.portfolioColor }}
+                    style={{ backgroundColor: e.itemColor }}
                   />
                   📍 <strong>{formatHumanDate(e.date)}</strong> —{" "}
                   <em>{e.friendlyName}</em> joined{" "}
-                  <span className="font-medium">
-                    &quot;{e.portfolioName}&quot;
-                  </span>{" "}
-                  at {e.percentage}% weight
+                  <span className="font-medium">&quot;{e.itemName}&quot;</span> at{" "}
+                  {e.percentage}% weight
                 </li>
               ))}
             </ul>
@@ -504,21 +668,18 @@ function HistoryComparison({
 
 function HistoryChart({
   data,
-  portfolios,
-  benchmarkLabel,
+  items,
   joinEvents,
 }: {
   data: HistoryDatapoint[];
-  portfolios: ResolvedPortfolio[];
-  benchmarkLabel: string | null;
+  items: ResolvedItem[];
   joinEvents: {
-    portfolioId: string;
-    portfolioColor: string;
+    itemId: string;
+    itemColor: string;
     ticker: string;
     date: string;
   }[];
 }) {
-  // Flatten the nested values structure so Recharts can read them as dataKeys.
   const flat = data.map((d) => {
     const row: Record<string, string | number | undefined> = { date: d.date };
     for (const [k, v] of Object.entries(d.values)) row[k] = v;
@@ -584,21 +745,18 @@ function HistoryChart({
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                   {row.date}
                 </div>
-                {portfolios.map((p) => {
-                  const v = row[`p_${p.id}`];
+                {items.map((it) => {
+                  const v = row[`p_${it.id}`];
                   if (typeof v !== "number") return null;
                   const ch = v - 100;
                   return (
-                    <div
-                      key={p.id}
-                      className="mt-1 flex items-center gap-2"
-                    >
+                    <div key={it.id} className="mt-1 flex items-center gap-2">
                       <span
                         className="inline-block h-1.5 w-3 rounded-sm"
-                        style={{ backgroundColor: p.color }}
+                        style={{ backgroundColor: it.color }}
                       />
-                      <span className="truncate text-zinc-700 dark:text-zinc-300">
-                        {p.name}
+                      <span className="max-w-[160px] truncate text-zinc-700 dark:text-zinc-300">
+                        {it.name}
                       </span>
                       <span
                         className={`ml-auto tabular-nums ${
@@ -613,54 +771,27 @@ function HistoryChart({
                     </div>
                   );
                 })}
-                {benchmarkLabel && typeof row.bench === "number" && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <span
-                      className="inline-block h-1.5 w-3 rounded-sm"
-                      style={{ backgroundColor: "#a1a1aa" }}
-                    />
-                    <span className="text-zinc-700 dark:text-zinc-300">
-                      Benchmark
-                    </span>
-                    <span className="ml-auto tabular-nums text-zinc-600 dark:text-zinc-400">
-                      {row.bench - 100 >= 0 ? "+" : ""}
-                      {(row.bench - 100).toFixed(1)}%
-                    </span>
-                  </div>
-                )}
               </div>
             );
           }}
         />
-        {portfolios.map((p) => (
+        {items.map((it) => (
           <Line
-            key={p.id}
+            key={it.id}
             type="monotone"
-            dataKey={`p_${p.id}`}
-            stroke={p.color}
+            dataKey={`p_${it.id}`}
+            stroke={it.color}
             strokeWidth={1.75}
             dot={false}
             isAnimationActive={false}
             connectNulls
           />
         ))}
-        {benchmarkLabel && (
-          <Line
-            type="monotone"
-            dataKey="bench"
-            stroke="#a1a1aa"
-            strokeWidth={1.25}
-            strokeDasharray="4 3"
-            dot={false}
-            isAnimationActive={false}
-            connectNulls
-          />
-        )}
         {joinEvents.map((e) => (
           <ReferenceLine
-            key={`${e.portfolioId}-${e.ticker}`}
+            key={`${e.itemId}-${e.ticker}`}
             x={e.date}
-            stroke={e.portfolioColor}
+            stroke={e.itemColor}
             strokeDasharray="2 3"
             strokeOpacity={0.6}
             strokeWidth={1}
@@ -678,10 +809,9 @@ function HistoryChart({
           iconSize={8}
           wrapperStyle={{ fontSize: 11 }}
           formatter={(val) => {
-            if (val === "bench") return "Benchmark";
             const id = String(val).replace(/^p_/, "");
-            const p = portfolios.find((pp) => pp.id === id);
-            return p?.name ?? val;
+            const it = items.find((x) => x.id === id);
+            return it?.name ?? val;
           }}
         />
       </ComposedChart>
@@ -700,28 +830,21 @@ function formatHumanDate(dateStr: string): string {
 
 // ─── Projection comparison ──────────────────────────────────────────
 
-function ProjectionComparison({
-  portfolios,
-}: {
-  portfolios: ResolvedPortfolio[];
-}) {
+function ProjectionComparison({ items }: { items: ResolvedItem[] }) {
   const [initial, setInitial] = useState(50000);
   const [monthly, setMonthly] = useState(5000);
   const [years, setYears] = useState(10);
 
   const projections = useMemo(() => {
-    return portfolios.map((p) => {
+    return items.map((it) => {
       const weightedR = weightedReturn(
-        p.allocations.map((a) => ({
+        it.allocations.map((a) => ({
           percentage: a.percentage,
           expectedReturn: a.expectedReturn,
         })),
       );
       const fee = weightedAnnualFee(
-        p.allocations.map((a) => ({
-          percentage: a.percentage,
-          ter: a.ter,
-        })),
+        it.allocations.map((a) => ({ percentage: a.percentage, ter: a.ter })),
       );
       if (weightedR == null) return null;
       const scenarios = projectScenarios({
@@ -731,16 +854,15 @@ function ProjectionComparison({
         expectedAnnualReturn: weightedR,
         inflationRate: 0.02,
       });
-      const finalRealistic = scenarios[scenarios.length - 1].realistic;
       return {
-        portfolio: p,
+        item: it,
         weightedReturn: weightedR,
         annualFee: fee,
         scenarios,
-        finalRealistic,
+        finalRealistic: scenarios[scenarios.length - 1].realistic,
       };
     });
-  }, [portfolios, initial, monthly, years]);
+  }, [items, initial, monthly, years]);
 
   const validProjections = projections.filter(
     (p): p is NonNullable<typeof p> => p !== null,
@@ -753,20 +875,18 @@ function ProjectionComparison({
           How they could grow
         </h2>
         <p className="mt-3 text-sm text-zinc-500">
-          Add funds with available return data to see a projection.
+          Add something with available return data to see a projection.
         </p>
       </section>
     );
   }
 
-  // Build chart data — years × portfolios
   const chartData: Record<string, string | number>[] = [];
   for (let y = 0; y <= years; y++) {
     const row: Record<string, string | number> = { year: y };
-    let contributed = initial + monthly * 12 * y;
-    row.contributed = contributed;
+    row.contributed = initial + monthly * 12 * y;
     for (const proj of validProjections) {
-      row[`p_${proj.portfolio.id}`] = proj.scenarios[y].realistic;
+      row[`p_${proj.item.id}`] = proj.scenarios[y].realistic;
     }
     chartData.push(row);
   }
@@ -777,8 +897,8 @@ function ProjectionComparison({
         How they could grow (realistic projection)
       </h2>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-        Same starting amount and monthly top-up applied to each portfolio.
-        Uses 75% of each portfolio's historical return (haircut for realism).
+        Same starting amount and monthly top-up applied to each. Uses 75% of
+        each one's historical return (haircut for realism).
       </p>
 
       <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -809,26 +929,22 @@ function ProjectionComparison({
       </div>
 
       <div className="mt-4 aspect-[16/9] w-full">
-        <ProjectionChart
-          data={chartData}
-          portfolios={portfolios}
-          years={years}
-        />
+        <ProjectionChart data={chartData} items={items} />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {validProjections.map((proj) => (
           <div
-            key={proj.portfolio.id}
+            key={proj.item.id}
             className="rounded-lg border bg-white p-4 dark:bg-zinc-900"
-            style={{ borderColor: proj.portfolio.color }}
+            style={{ borderColor: proj.item.color }}
           >
             <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
               <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: proj.portfolio.color }}
+                className="inline-block h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: proj.item.color }}
               />
-              {proj.portfolio.name}
+              <span className="truncate">{proj.item.name}</span>
             </div>
             <div className="mt-2 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
               {formatMoney(proj.finalRealistic)}
@@ -858,19 +974,14 @@ function ProjectionComparison({
 
 function ProjectionChart({
   data,
-  portfolios,
-  years,
+  items,
 }: {
   data: Record<string, string | number>[];
-  portfolios: ResolvedPortfolio[];
-  years: number;
+  items: ResolvedItem[];
 }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart
-        data={data}
-        margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
-      >
+      <ComposedChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
         <CartesianGrid
           strokeDasharray="3 3"
           stroke="currentColor"
@@ -903,20 +1014,17 @@ function ProjectionChart({
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                   Year {row.year}
                 </div>
-                {portfolios.map((p) => {
-                  const v = row[`p_${p.id}`];
+                {items.map((it) => {
+                  const v = row[`p_${it.id}`];
                   if (typeof v !== "number") return null;
                   return (
-                    <div
-                      key={p.id}
-                      className="mt-1 flex items-center gap-2"
-                    >
+                    <div key={it.id} className="mt-1 flex items-center gap-2">
                       <span
                         className="inline-block h-1.5 w-3 rounded-sm"
-                        style={{ backgroundColor: p.color }}
+                        style={{ backgroundColor: it.color }}
                       />
-                      <span className="text-zinc-700 dark:text-zinc-300">
-                        {p.name}
+                      <span className="max-w-[160px] truncate text-zinc-700 dark:text-zinc-300">
+                        {it.name}
                       </span>
                       <span className="ml-auto font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
                         {formatMoney(v)}
@@ -938,12 +1046,12 @@ function ProjectionChart({
             );
           }}
         />
-        {portfolios.map((p) => (
+        {items.map((it) => (
           <Line
-            key={p.id}
+            key={it.id}
             type="monotone"
-            dataKey={`p_${p.id}`}
-            stroke={p.color}
+            dataKey={`p_${it.id}`}
+            stroke={it.color}
             strokeWidth={2}
             dot={false}
             isAnimationActive={false}
@@ -966,8 +1074,8 @@ function ProjectionChart({
           formatter={(val) => {
             if (val === "contributed") return "Money put in";
             const id = String(val).replace(/^p_/, "");
-            const p = portfolios.find((pp) => pp.id === id);
-            return p?.name ?? val;
+            const it = items.find((x) => x.id === id);
+            return it?.name ?? val;
           }}
         />
       </ComposedChart>
@@ -1019,28 +1127,25 @@ function ReturnTile({
   label,
   value,
   color,
-  muted = false,
 }: {
   label: string;
   value: number;
   color: string;
-  muted?: boolean;
 }) {
   const pct = value * 100;
   const sign = pct >= 0 ? "+" : "";
-  const cls = muted
-    ? "text-zinc-700 dark:text-zinc-300"
-    : pct >= 0
+  const cls =
+    pct >= 0
       ? "text-emerald-600 dark:text-emerald-400"
       : "text-rose-600 dark:text-rose-400";
   return (
     <div
-      className={`rounded-lg border bg-white px-4 py-3 dark:bg-zinc-900 ${muted ? "border-zinc-200 dark:border-zinc-800" : ""}`}
-      style={!muted ? { borderColor: color } : undefined}
+      className="rounded-lg border bg-white px-4 py-3 dark:bg-zinc-900"
+      style={{ borderColor: color }}
     >
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         <span
-          className="inline-block h-2 w-2 rounded-full"
+          className="inline-block h-2 w-2 shrink-0 rounded-full"
           style={{ backgroundColor: color }}
         />
         <span className="truncate">{label}</span>
