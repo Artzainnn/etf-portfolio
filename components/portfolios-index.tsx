@@ -14,6 +14,11 @@ import {
   restorePortfolios,
   type StoredPortfolio,
 } from "@/lib/storage/portfolios";
+import {
+  allocationKind,
+  composition,
+  resolveLeaves,
+} from "@/lib/portfolio/composition";
 
 type ImportState =
   | { kind: "idle" }
@@ -217,20 +222,53 @@ export function PortfoliosIndex() {
         </div>
       ) : (
         <ul className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          {portfolios.map((p) => (
+          {(() => {
+            const byId = new Map(portfolios.map((p) => [p.id, p]));
+            const getById = (id: string) => byId.get(id) ?? null;
+            return portfolios.map((p) => {
+              // Top-level make-up
+              let funds = 0;
+              let stocks = 0;
+              let nested = 0;
+              for (const a of p.allocations) {
+                const k = allocationKind(a);
+                if (k === "etf") funds++;
+                else if (k === "stock") stocks++;
+                else if (k === "portfolio") nested++;
+              }
+              const holdingParts: string[] = [];
+              if (funds > 0) holdingParts.push(`${funds} fund${funds === 1 ? "" : "s"}`);
+              if (stocks > 0) holdingParts.push(`${stocks} stock${stocks === 1 ? "" : "s"}`);
+              if (nested > 0)
+                holdingParts.push(`${nested} portfolio${nested === 1 ? "" : "s"}`);
+              if (holdingParts.length === 0) holdingParts.push("empty");
+              // Flattened ETF vs stock split (nested portfolios expanded)
+              const comp = composition(resolveLeaves(p.allocations, getById));
+              const etfPct = Math.round(comp.etf * 100);
+              const stockPct = Math.round(comp.stock * 100);
+              return (
             <li
               key={p.id}
               className="group flex items-center gap-4 border-b border-zinc-100 px-6 py-4 last:border-b-0 dark:border-zinc-800"
             >
               <Link href={`/portfolios/${p.id}`} className="min-w-0 flex-1">
-                <div className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-50">
-                  {p.name}
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-50">
+                    {p.name}
+                  </span>
+                  {etfPct > 0 && (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                      {etfPct}% funds
+                    </span>
+                  )}
+                  {stockPct > 0 && (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                      {stockPct}% stocks
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  <span>
-                    {p.allocations.length} fund
-                    {p.allocations.length === 1 ? "" : "s"}
-                  </span>
+                  <span>{holdingParts.join(" · ")}</span>
                   <span>·</span>
                   <span>{p.durationYears}-year horizon</span>
                   {p.description && (
@@ -258,7 +296,9 @@ export function PortfoliosIndex() {
                 <Trash2 className="h-4 w-4" />
               </button>
             </li>
-          ))}
+              );
+            });
+          })()}
         </ul>
       )}
 

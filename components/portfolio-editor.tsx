@@ -7,25 +7,54 @@ import { ArrowLeft, Check, Copy, Loader2, Plus, Star, Trash2, X } from "lucide-r
 import type { Etf } from "@/lib/db/schema";
 import {
   getPortfolio,
+  listPortfolios,
   updatePortfolio,
   deletePortfolio,
+  type Allocation,
   type StoredPortfolio,
 } from "@/lib/storage/portfolios";
+import {
+  annualizedStockReturn,
+  flagFor,
+  type Stock,
+} from "@/lib/data/stocks";
+import {
+  composition,
+  resolveLeaves,
+  wouldCreateCycle,
+} from "@/lib/portfolio/composition";
 import { getEtfEmoji } from "@/lib/data/emoji";
 import { listFavorites } from "@/lib/storage/favorites";
 import { SimulatorPanel } from "./simulator-panel";
 import { PortfolioBacktest } from "./portfolio-backtest";
 import { weightedAnnualFee } from "@/lib/simulation/calculator";
 
+type HoldingKind = "etf" | "stock" | "portfolio";
+
 interface AllocationState {
-  ticker: string;
+  kind: HoldingKind;
+  /** Stable identity for React keys + dedup: "etf:VWCE.DE", "portfolio:abc". */
+  key: string;
+  ticker?: string; // etf | stock
+  portfolioId?: string; // portfolio
   emoji: string;
   friendlyName: string;
-  name: string;
-  riskScore: number | null;
+  /** Secondary line (technical name, or a portfolio's composition). */
+  subtitle: string;
+  /** Right-aligned chip: the ticker, or "Portfolio". */
+  badge: string;
+  percentage: number;
+  /** Blended annual fee for the fee breakdown. etf: TER; stock: 0; portfolio: weighted. */
+  ter: number | null;
+}
+
+/** A flattened leaf holding feeding the simulator + backtest. */
+interface LeafInput {
+  ticker: string;
+  friendlyName: string;
   percentage: number;
   expectedReturn: number | null;
-  /** Annual fee as decimal (e.g. 0.0025 = 0.25%/year). */
+  volatility: number | null;
   ter: number | null;
 }
 
@@ -49,30 +78,96 @@ function bestExpectedReturn(etf: {
   return null;
 }
 
-function allocationStateFor(etf: Etf, percentage: number): AllocationState {
+function etfTerOf(ticker: string, etfsByTicker: Map<string, Etf>): number | null {
+  const e = etfsByTicker.get(ticker);
+  return e?.ter ? parseFloat(e.ter) : null;
+}
+
+function etfRow(etf: Etf, percentage: number): AllocationState {
   return {
+    kind: "etf",
+    key: `etf:${etf.ticker}`,
     ticker: etf.ticker,
     emoji: getEtfEmoji(etf.ticker),
     friendlyName: etf.friendlyName ?? etf.name,
-    name: etf.name,
-    riskScore: etf.riskScore,
+    subtitle: etf.name,
+    badge: etf.ticker,
     percentage,
-    expectedReturn: bestExpectedReturn(etf),
     ter: etf.ter ? parseFloat(etf.ter) : null,
   };
+}
+
+function stockRow(stock: Stock, percentage: number): AllocationState {
+  return {
+    kind: "stock",
+    key: `stock:${stock.ticker}`,
+    ticker: stock.ticker,
+    emoji: stock.emoji ?? flagFor(stock.country),
+    friendlyName: stock.friendlyName,
+    subtitle: stock.name,
+    badge: stock.ticker,
+    percentage,
+    ter: 0, // individual stocks have no ongoing fund fee
+  };
+}
+
+function portfolioRow(
+  child: StoredPortfolio,
+  percentage: number,
+  getPortfolioById: (id: string) => StoredPortfolio | null,
+  etfsByTicker: Map<string, Etf>,
+): AllocationState {
+  const leaves = resolveLeaves(child.allocations, getPortfolioById);
+  const comp = composition(leaves);
+  const ter = weightedAnnualFee(
+    leaves.map((l) => ({
+      percentage: l.percentage,
+      ter: l.kind === "stock" ? 0 : etfTerOf(l.ticker, etfsByTicker),
+    })),
+  );
+  const parts: string[] = [];
+  if (comp.etf > 0) parts.push(`${Math.round(comp.etf * 100)}% funds`);
+  if (comp.stock > 0) parts.push(`${Math.round(comp.stock * 100)}% stocks`);
+  const subtitle = parts.length
+    ? `Portfolio · ${parts.join(" · ")}`
+    : "Empty portfolio";
+  return {
+    kind: "portfolio",
+    key: `portfolio:${child.id}`,
+    portfolioId: child.id,
+    emoji: "🧺",
+    friendlyName: child.name,
+    subtitle,
+    badge: "Portfolio",
+    percentage,
+    ter,
+  };
+}
+
+function rowToAllocation(r: AllocationState): Allocation {
+  if (r.kind === "portfolio") {
+    return { kind: "portfolio", portfolioId: r.portfolioId, percentage: r.percentage };
+  }
+  return { kind: r.kind, ticker: r.ticker, percentage: r.percentage };
 }
 
 export function PortfolioEditor({
   portfolioId,
   allEtfs,
+  allStocks,
 }: {
   portfolioId: string;
   allEtfs: Etf[];
+  allStocks: Stock[];
 }) {
   const router = useRouter();
   const etfsByTicker = useMemo(
     () => new Map(allEtfs.map((e) => [e.ticker, e])),
     [allEtfs],
+  );
+  const stocksByTicker = useMemo(
+    () => new Map(allStocks.map((s) => [s.ticker, s])),
+    [allStocks],
   );
 
   const [loaded, setLoaded] = useState(false);
@@ -84,10 +179,25 @@ export function PortfolioEditor({
   const [durationYears, setDurationYears] = useState(10);
   const [inflationRate, setInflationRate] = useState(0.02);
   const [allocations, setAllocations] = useState<AllocationState[]>([]);
+  const [otherPortfolios, setOtherPortfolios] = useState<StoredPortfolio[]>([]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const portfoliosById = useMemo(
+    () => new Map(otherPortfolios.map((p) => [p.id, p])),
+    [otherPortfolios],
+  );
+  const getPortfolioById = useCallback(
+    (id: string): StoredPortfolio | null => portfoliosById.get(id) ?? null,
+    [portfoliosById],
+  );
 
   // Hydrate state from localStorage on mount
   useEffect(() => {
+    const all = listPortfolios();
+    setOtherPortfolios(all);
+    const pById = new Map(all.map((p) => [p.id, p]));
+    const getById = (id: string): StoredPortfolio | null => pById.get(id) ?? null;
+
     const stored = getPortfolio(portfolioId);
     if (!stored) {
       setMissing(true);
@@ -102,16 +212,30 @@ export function PortfolioEditor({
     setInflationRate(stored.inflationRate);
     setAllocations(
       stored.allocations
-        .map((a) => {
+        .map((a): AllocationState | null => {
+          const kind = a.kind ?? (a.portfolioId ? "portfolio" : a.ticker ? "etf" : null);
+          if (kind === "portfolio") {
+            if (!a.portfolioId) return null;
+            const child = getById(a.portfolioId);
+            if (!child) return null;
+            return portfolioRow(child, a.percentage, getById, etfsByTicker);
+          }
+          if (kind === "stock") {
+            if (!a.ticker) return null;
+            const s = stocksByTicker.get(a.ticker);
+            if (!s) return null;
+            return stockRow(s, a.percentage);
+          }
+          // etf (incl. legacy)
           if (!a.ticker) return null;
           const etf = etfsByTicker.get(a.ticker);
           if (!etf) return null;
-          return allocationStateFor(etf, a.percentage);
+          return etfRow(etf, a.percentage);
         })
         .filter((a): a is AllocationState => a !== null),
     );
     setLoaded(true);
-  }, [portfolioId, etfsByTicker]);
+  }, [portfolioId, etfsByTicker, stocksByTicker]);
 
   // Auto-save (debounced 500ms)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -133,10 +257,7 @@ export function PortfolioEditor({
           monthlyContribution,
           durationYears,
           inflationRate,
-          allocations: allocations.map((a) => ({
-            ticker: a.ticker,
-            percentage: a.percentage,
-          })),
+          allocations: allocations.map(rowToAllocation),
         });
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 1200);
@@ -160,30 +281,79 @@ export function PortfolioEditor({
     allocations,
   ]);
 
+  // Flatten to leaf holdings (ETFs + stocks) for the simulator & backtest.
+  // Nested portfolios are expanded; duplicate tickers merged.
+  const leaves = useMemo<LeafInput[]>(() => {
+    const allocs = allocations.map(rowToAllocation);
+    const resolved = resolveLeaves(allocs, getPortfolioById);
+    return resolved
+      .map((l): LeafInput | null => {
+        if (l.kind === "etf") {
+          const etf = etfsByTicker.get(l.ticker);
+          if (!etf) return null;
+          return {
+            ticker: l.ticker,
+            friendlyName: etf.friendlyName ?? etf.name,
+            percentage: l.percentage,
+            expectedReturn: bestExpectedReturn(etf),
+            volatility: null,
+            ter: etf.ter ? parseFloat(etf.ter) : null,
+          };
+        }
+        const s = stocksByTicker.get(l.ticker);
+        if (!s) return null;
+        return {
+          ticker: l.ticker,
+          friendlyName: s.friendlyName,
+          percentage: l.percentage,
+          expectedReturn: annualizedStockReturn(s.periodReturns),
+          volatility: null,
+          ter: 0,
+        };
+      })
+      .filter((l): l is LeafInput => l !== null);
+  }, [allocations, getPortfolioById, etfsByTicker, stocksByTicker]);
+
+  const selectedKeys = useMemo(
+    () => new Set(allocations.map((a) => a.key)),
+    [allocations],
+  );
+
   const totalAllocation = allocations.reduce((s, a) => s + a.percentage, 0);
   const inRange = totalAllocation >= 99 && totalAllocation <= 101;
 
-  const setAllocationPct = useCallback((ticker: string, pct: number) => {
+  const setAllocationPct = useCallback((key: string, pct: number) => {
     setAllocations((prev) =>
       prev.map((a) =>
-        a.ticker === ticker
+        a.key === key
           ? { ...a, percentage: Math.max(0, Math.min(100, pct)) }
           : a,
       ),
     );
   }, []);
 
-  const removeAllocation = useCallback((ticker: string) => {
-    setAllocations((prev) => prev.filter((a) => a.ticker !== ticker));
+  const removeAllocation = useCallback((key: string) => {
+    setAllocations((prev) => prev.filter((a) => a.key !== key));
   }, []);
 
-  const addAllocation = useCallback((etf: Etf) => {
+  const addRow = useCallback((row: AllocationState) => {
     setAllocations((prev) => {
-      if (prev.some((a) => a.ticker === etf.ticker)) return prev;
+      if (prev.some((a) => a.key === row.key)) return prev;
       const defaultPct = prev.length === 0 ? 100 : 10;
-      return [...prev, allocationStateFor(etf, defaultPct)];
+      return [...prev, { ...row, percentage: defaultPct }];
     });
   }, []);
+
+  const addEtf = useCallback((etf: Etf) => addRow(etfRow(etf, 0)), [addRow]);
+  const addStock = useCallback(
+    (stock: Stock) => addRow(stockRow(stock, 0)),
+    [addRow],
+  );
+  const addPortfolioRef = useCallback(
+    (child: StoredPortfolio) =>
+      addRow(portfolioRow(child, 0, getPortfolioById, etfsByTicker)),
+    [addRow, getPortfolioById, etfsByTicker],
+  );
 
   const equalize = useCallback(() => {
     if (allocations.length === 0) return;
@@ -223,13 +393,13 @@ export function PortfolioEditor({
     );
     lines.push("");
     if (allocations.length === 0) {
-      lines.push("_(no funds added yet)_");
+      lines.push("_(no holdings added yet)_");
     } else {
-      lines.push("| Fund | Ticker | Allocation |");
+      lines.push("| Holding | Ticker | Allocation |");
       lines.push("|---|---|---|");
       for (const a of allocations) {
         lines.push(
-          `| ${a.emoji} ${a.friendlyName} | ${a.ticker} | ${a.percentage}% |`,
+          `| ${a.emoji} ${a.friendlyName} | ${a.badge} | ${a.percentage}% |`,
         );
       }
       lines.push("");
@@ -365,26 +535,33 @@ export function PortfolioEditor({
           {allocations.length === 0 ? (
             <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50/50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                No funds yet. Add at least one to start simulating.
+                Nothing here yet. Add a fund, a stock, or another portfolio to
+                start simulating.
               </p>
             </div>
           ) : (
             <ul className="space-y-3">
               {allocations.map((a) => (
                 <AllocationRow
-                  key={a.ticker}
+                  key={a.key}
                   allocation={a}
-                  onChange={(pct) => setAllocationPct(a.ticker, pct)}
-                  onRemove={() => removeAllocation(a.ticker)}
+                  onChange={(pct) => setAllocationPct(a.key, pct)}
+                  onRemove={() => removeAllocation(a.key)}
                 />
               ))}
             </ul>
           )}
 
-          <AddEtfPicker
+          <AddHoldingPicker
             allEtfs={allEtfs}
-            selectedTickers={new Set(allocations.map((a) => a.ticker))}
-            onAdd={addAllocation}
+            allStocks={allStocks}
+            otherPortfolios={otherPortfolios}
+            currentPortfolioId={portfolioId}
+            getPortfolioById={getPortfolioById}
+            selectedKeys={selectedKeys}
+            onAddEtf={addEtf}
+            onAddStock={addStock}
+            onAddPortfolio={addPortfolioRef}
           />
 
           {allocations.length > 0 && (
@@ -410,10 +587,7 @@ export function PortfolioEditor({
           {allocations.length > 0 &&
             (() => {
               const avgFee = weightedAnnualFee(
-                allocations.map((a) => ({
-                  percentage: a.percentage,
-                  ter: a.ter,
-                })),
+                leaves.map((l) => ({ percentage: l.percentage, ter: l.ter })),
               );
               if (avgFee == null) return null;
               const feePct = avgFee * 100;
@@ -438,20 +612,20 @@ export function PortfolioEditor({
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Weighted across your funds. On your starting amount that's
-                    roughly{" "}
+                    Weighted across your holdings (individual stocks carry no
+                    fund fee). On your starting amount that's roughly{" "}
                     <span className="font-medium text-zinc-700 dark:text-zinc-300">
                       {fmt(yearlyOnStart)}
                     </span>{" "}
                     per year (grows as the portfolio grows).
                   </p>
-                  {/* Per-fund breakdown */}
+                  {/* Per-holding breakdown */}
                   <div className="mt-3 space-y-1 border-t border-zinc-100 pt-2 dark:border-zinc-800">
                     {allocations
                       .filter((a) => a.percentage > 0)
                       .map((a) => (
                         <div
-                          key={a.ticker}
+                          key={a.key}
                           className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400"
                         >
                           <span className="truncate">
@@ -461,9 +635,11 @@ export function PortfolioEditor({
                             {a.friendlyName}
                           </span>
                           <span className="tabular-nums">
-                            {a.ter != null
-                              ? `${(a.ter * 100).toFixed(2)}%`
-                              : "—"}
+                            {a.kind === "stock"
+                              ? "—"
+                              : a.ter != null
+                                ? `${(a.ter * 100).toFixed(2)}%`
+                                : "—"}
                           </span>
                         </div>
                       ))}
@@ -475,7 +651,7 @@ export function PortfolioEditor({
 
         <section>
           <SimulatorPanel
-            allocations={allocations}
+            allocations={leaves}
             initialInvestment={initialInvestment}
             monthlyContribution={monthlyContribution}
             durationYears={durationYears}
@@ -490,10 +666,10 @@ export function PortfolioEditor({
 
       {/* Historical backtest */}
       <PortfolioBacktest
-        allocations={allocations.map((a) => ({
-          ticker: a.ticker,
-          friendlyName: a.friendlyName,
-          percentage: a.percentage,
+        allocations={leaves.map((l) => ({
+          ticker: l.ticker,
+          friendlyName: l.friendlyName,
+          percentage: l.percentage,
         }))}
       />
     </div>
@@ -538,6 +714,7 @@ function AllocationRow({
   onChange: (pct: number) => void;
   onRemove: () => void;
 }) {
+  const isPortfolio = allocation.kind === "portfolio";
   return (
     <li className="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-start gap-3">
@@ -549,10 +726,16 @@ function AllocationRow({
             {allocation.friendlyName}
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-            <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-tight text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-              {allocation.ticker}
+            <span
+              className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-tight ${
+                isPortfolio
+                  ? "bg-violet-100 font-sans text-violet-700 dark:bg-violet-950/50 dark:text-violet-300"
+                  : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+              }`}
+            >
+              {allocation.badge}
             </span>
-            <span className="truncate">{allocation.name}</span>
+            <span className="truncate">{allocation.subtitle}</span>
           </div>
         </div>
         <input
@@ -589,16 +772,31 @@ function AllocationRow({
   );
 }
 
-function AddEtfPicker({
+type PickerTab = "funds" | "stocks" | "portfolios";
+
+function AddHoldingPicker({
   allEtfs,
-  selectedTickers,
-  onAdd,
+  allStocks,
+  otherPortfolios,
+  currentPortfolioId,
+  getPortfolioById,
+  selectedKeys,
+  onAddEtf,
+  onAddStock,
+  onAddPortfolio,
 }: {
   allEtfs: Etf[];
-  selectedTickers: Set<string>;
-  onAdd: (etf: Etf) => void;
+  allStocks: Stock[];
+  otherPortfolios: StoredPortfolio[];
+  currentPortfolioId: string;
+  getPortfolioById: (id: string) => StoredPortfolio | null;
+  selectedKeys: Set<string>;
+  onAddEtf: (etf: Etf) => void;
+  onAddStock: (stock: Stock) => void;
+  onAddPortfolio: (child: StoredPortfolio) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<PickerTab>("funds");
   const [query, setQuery] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -612,10 +810,23 @@ function AddEtfPicker({
     return () => window.removeEventListener("etfp:favorites-changed", onChange);
   }, []);
 
-  const filtered = useMemo(() => {
+  // Favorites are stored as one flat set; count only those in the active
+  // universe so ETF and stock favorites are independent.
+  const fundFavCount = useMemo(
+    () => allEtfs.filter((e) => favorites.has(e.ticker)).length,
+    [allEtfs, favorites],
+  );
+  const stockFavCount = useMemo(
+    () => allStocks.filter((s) => favorites.has(s.ticker)).length,
+    [allStocks, favorites],
+  );
+  const favCount = tab === "stocks" ? stockFavCount : fundFavCount;
+  const favsAvailable = tab === "funds" || tab === "stocks";
+
+  const fundResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allEtfs
-      .filter((e) => !selectedTickers.has(e.ticker))
+      .filter((e) => !selectedKeys.has(`etf:${e.ticker}`))
       .filter((e) => (favoritesOnly ? favorites.has(e.ticker) : true))
       .filter((e) => {
         if (!q) return true;
@@ -632,7 +843,40 @@ function AddEtfPicker({
         return hay.includes(q);
       })
       .slice(0, 50);
-  }, [allEtfs, selectedTickers, query, favoritesOnly, favorites]);
+  }, [allEtfs, selectedKeys, query, favoritesOnly, favorites]);
+
+  const stockResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return allStocks
+      .filter((s) => !selectedKeys.has(`stock:${s.ticker}`))
+      .filter((s) => (favoritesOnly ? favorites.has(s.ticker) : true))
+      .filter((s) => {
+        if (!q) return true;
+        const hay = [
+          s.ticker,
+          s.friendlyName,
+          s.name,
+          s.shortDescription,
+          s.industries?.join(" "),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      })
+      .slice(0, 50);
+  }, [allStocks, selectedKeys, query, favoritesOnly, favorites]);
+
+  const portfolioResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return otherPortfolios.filter((p) => {
+      if (p.id === currentPortfolioId) return false;
+      if (selectedKeys.has(`portfolio:${p.id}`)) return false;
+      if (wouldCreateCycle(p.id, currentPortfolioId, getPortfolioById)) return false;
+      if (!q) return true;
+      return `${p.name} ${p.description ?? ""}`.toLowerCase().includes(q);
+    });
+  }, [otherPortfolios, currentPortfolioId, selectedKeys, getPortfolioById, query]);
 
   if (!open) {
     return (
@@ -641,34 +885,69 @@ function AddEtfPicker({
         className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
       >
         <Plus className="h-4 w-4" />
-        Add a fund
+        Add a fund, stock, or portfolio
       </button>
     );
   }
 
+  const tabs: { key: PickerTab; label: string }[] = [
+    { key: "funds", label: "Funds" },
+    { key: "stocks", label: "Stocks" },
+    { key: "portfolios", label: "Portfolios" },
+  ];
+
   return (
     <div className="mt-3 rounded-lg border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+      {/* Tabs + close */}
       <div className="flex items-center justify-between gap-2">
-        <input
-          type="search"
-          autoFocus
-          placeholder="Search by name, theme, or ticker…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
-        />
+        <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-950">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => {
+                setTab(t.key);
+                if (t.key === "portfolios") setFavoritesOnly(false);
+              }}
+              className={`rounded-md px-3 py-1 font-medium transition-colors ${
+                tab === t.key
+                  ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
+                  : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => {
             setOpen(false);
             setQuery("");
           }}
           className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          aria-label="Close fund picker"
+          aria-label="Close picker"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
-      {favorites.size > 0 && (
+
+      <div className="mt-2">
+        <input
+          type="search"
+          autoFocus
+          placeholder={
+            tab === "funds"
+              ? "Search funds by name, theme, or ticker…"
+              : tab === "stocks"
+                ? "Search companies by name, industry, or ticker…"
+                : "Search your portfolios…"
+          }
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
+        />
+      </div>
+
+      {favsAvailable && favCount > 0 && (
         <div className="mt-2 flex items-center gap-2">
           <button
             type="button"
@@ -684,41 +963,108 @@ function AddEtfPicker({
               className="h-3 w-3"
               fill={favoritesOnly ? "currentColor" : "none"}
             />
-            <span>Only my favorites ({favorites.size})</span>
+            <span>Only my favorites ({favCount})</span>
           </button>
         </div>
       )}
+
       <ul className="mt-2 max-h-72 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
-        {filtered.length === 0 ? (
-          <li className="py-6 text-center text-xs text-zinc-500">No matches.</li>
-        ) : (
-          filtered.map((etf) => (
-            <li key={etf.id}>
-              <button
-                onClick={() => {
-                  onAdd(etf);
-                  setQuery("");
-                }}
-                className="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-              >
-                <span className="text-lg" aria-hidden>
-                  {getEtfEmoji(etf.ticker)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    {etf.friendlyName ?? etf.name}
+        {tab === "funds" &&
+          (fundResults.length === 0 ? (
+            <li className="py-6 text-center text-xs text-zinc-500">No matches.</li>
+          ) : (
+            fundResults.map((etf) => (
+              <li key={etf.ticker}>
+                <button
+                  onClick={() => {
+                    onAddEtf(etf);
+                    setQuery("");
+                  }}
+                  className="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                >
+                  <span className="text-lg" aria-hidden>
+                    {getEtfEmoji(etf.ticker)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {etf.friendlyName ?? etf.name}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono font-semibold tracking-tight text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                        {etf.ticker}
+                      </span>
+                      <span className="truncate">{etf.name}</span>
+                    </div>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-                    <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono font-semibold tracking-tight text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                      {etf.ticker}
-                    </span>
-                    <span className="truncate">{etf.name}</span>
+                </button>
+              </li>
+            ))
+          ))}
+
+        {tab === "stocks" &&
+          (stockResults.length === 0 ? (
+            <li className="py-6 text-center text-xs text-zinc-500">No matches.</li>
+          ) : (
+            stockResults.map((stock) => (
+              <li key={stock.ticker}>
+                <button
+                  onClick={() => {
+                    onAddStock(stock);
+                    setQuery("");
+                  }}
+                  className="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                >
+                  <span className="text-lg" aria-hidden>
+                    {stock.emoji ?? flagFor(stock.country)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {stock.friendlyName}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono font-semibold tracking-tight text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                        {stock.ticker}
+                      </span>
+                      <span className="truncate">{stock.name}</span>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              </li>
+            ))
+          ))}
+
+        {tab === "portfolios" &&
+          (portfolioResults.length === 0 ? (
+            <li className="py-6 text-center text-xs text-zinc-500">
+              No other portfolios to add.
             </li>
-          ))
-        )}
+          ) : (
+            portfolioResults.map((p) => (
+              <li key={p.id}>
+                <button
+                  onClick={() => {
+                    onAddPortfolio(p);
+                    setQuery("");
+                  }}
+                  className="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                >
+                  <span className="text-lg" aria-hidden>
+                    🧺
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {p.name}
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {p.allocations.length} holding
+                      {p.allocations.length === 1 ? "" : "s"}
+                      {p.description ? ` · ${p.description}` : ""}
+                    </div>
+                  </div>
+                </button>
+              </li>
+            ))
+          ))}
       </ul>
     </div>
   );

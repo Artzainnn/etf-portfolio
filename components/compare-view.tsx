@@ -20,6 +20,8 @@ import {
   type StoredPortfolio,
 } from "@/lib/storage/portfolios";
 import { ALL_ETFS_SYNC } from "@/lib/data/etfs";
+import { ALL_STOCKS_SYNC, annualizedStockReturn } from "@/lib/data/stocks";
+import { resolveLeaves } from "@/lib/portfolio/composition";
 import { getEtfEmoji } from "@/lib/data/emoji";
 import { CompareSelect } from "./compare-select";
 import { DEFAULT_COMPARE_TICKER } from "@/lib/data/benchmarks";
@@ -70,22 +72,41 @@ function bestExpectedReturn(etf: {
   return null;
 }
 
+const COMPARE_ETFS_BY_TICKER = new Map(
+  ALL_ETFS_SYNC.map((e) => [e.ticker, e]),
+);
+const COMPARE_STOCKS_BY_TICKER = new Map(
+  ALL_STOCKS_SYNC.map((s) => [s.ticker, s]),
+);
+
 function resolvePortfolio(
   stored: StoredPortfolio,
   color: string,
+  getPortfolioById: (id: string) => StoredPortfolio | null,
 ): ResolvedPortfolio {
-  const etfsByTicker = new Map(ALL_ETFS_SYNC.map((e) => [e.ticker, e]));
-  const allocations = stored.allocations
-    .map((a) => {
-      if (!a.ticker) return null;
-      const etf = etfsByTicker.get(a.ticker);
-      if (!etf) return null;
+  // Flatten ETFs, stocks, and nested portfolios into leaf holdings.
+  const leaves = resolveLeaves(stored.allocations, getPortfolioById);
+  const allocations = leaves
+    .map((l) => {
+      if (l.kind === "etf") {
+        const etf = COMPARE_ETFS_BY_TICKER.get(l.ticker);
+        if (!etf) return null;
+        return {
+          ticker: etf.ticker,
+          friendlyName: etf.friendlyName ?? etf.name,
+          percentage: l.percentage,
+          ter: etf.ter ? parseFloat(etf.ter) : null,
+          expectedReturn: bestExpectedReturn(etf),
+        };
+      }
+      const s = COMPARE_STOCKS_BY_TICKER.get(l.ticker);
+      if (!s) return null;
       return {
-        ticker: etf.ticker,
-        friendlyName: etf.friendlyName ?? etf.name,
-        percentage: a.percentage,
-        ter: etf.ter ? parseFloat(etf.ter) : null,
-        expectedReturn: bestExpectedReturn(etf),
+        ticker: s.ticker,
+        friendlyName: s.friendlyName,
+        percentage: l.percentage,
+        ter: 0,
+        expectedReturn: annualizedStockReturn(s.periodReturns),
       };
     })
     .filter((a): a is ResolvedPortfolio["allocations"][number] => a !== null);
@@ -116,11 +137,12 @@ export function CompareView() {
   const resolved: ResolvedPortfolio[] = useMemo(() => {
     if (!portfolios) return [];
     const byId = new Map(portfolios.map((p) => [p.id, p]));
+    const getById = (id: string): StoredPortfolio | null => byId.get(id) ?? null;
     return slotIds
       .map((id, idx) => {
         const p = id ? byId.get(id) : undefined;
         if (!p) return null;
-        return resolvePortfolio(p, PORTFOLIO_COLORS[idx]);
+        return resolvePortfolio(p, PORTFOLIO_COLORS[idx], getById);
       })
       .filter((p): p is ResolvedPortfolio => p !== null);
   }, [portfolios, slotIds]);

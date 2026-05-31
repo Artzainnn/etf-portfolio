@@ -105,6 +105,13 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
     setFavoritesOnly(false);
   };
 
+  // Favorites are stored in one flat set shared with ETFs — count only the
+  // ones that are actually stocks so the badge reflects stock favorites.
+  const stockFavCount = useMemo(
+    () => stocks.filter((s) => favorites.has(s.ticker)).length,
+    [stocks, favorites],
+  );
+
   const hasFilters =
     search !== "" || activeIndustries.length > 0 || favoritesOnly;
 
@@ -180,7 +187,7 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
         </div>
 
         {/* Favorites toggle */}
-        {favorites.size > 0 && (
+        {stockFavCount > 0 && (
           <div className="mt-4">
             <button
               type="button"
@@ -196,7 +203,7 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
                 className="h-3.5 w-3.5"
                 fill={favoritesOnly ? "currentColor" : "none"}
               />
-              <span>Only my favorites ({favorites.size})</span>
+              <span>Only my favorites ({stockFavCount})</span>
             </button>
           </div>
         )}

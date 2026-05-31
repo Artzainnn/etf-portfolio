@@ -20,8 +20,19 @@ const STORAGE_KEY = "etfp:portfolios:v1";
 const BACKUP_KEY = "etfp:portfolios:pre-ticker-migration-backup";
 
 export interface Allocation {
-  /** Stable fund identity. Always present after migration. */
+  /**
+   * What this holding is:
+   *   - "etf"       → an ETF, referenced by `ticker`
+   *   - "stock"     → an individual company, referenced by `ticker`
+   *   - "portfolio" → another saved portfolio, referenced by `portfolioId`
+   * Optional for backward-compat: legacy allocations (ticker only, no kind)
+   * are treated as ETFs.
+   */
+  kind?: "etf" | "stock" | "portfolio";
+  /** Stable fund/stock identity. Present for kind "etf" | "stock". */
   ticker?: string;
+  /** Target id of a nested portfolio. Present for kind "portfolio". */
+  portfolioId?: string;
   /** Legacy numeric id — only on un-migrated portfolios. */
   etfId?: number;
   percentage: number;

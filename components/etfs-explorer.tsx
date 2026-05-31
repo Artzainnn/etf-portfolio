@@ -113,6 +113,13 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
     return () => window.removeEventListener("etfp:favorites-changed", onChange);
   }, []);
 
+  // Favorites are stored in one flat set shared with stocks — count only the
+  // ones that are actually ETFs so the badge reflects fund favorites.
+  const etfFavCount = useMemo(
+    () => etfs.filter((e) => favorites.has(e.ticker)).length,
+    [etfs, favorites],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = etfs.filter((e) => {
@@ -349,7 +356,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
         </div>
 
         {/* Favorites toggle */}
-        {favorites.size > 0 && (
+        {etfFavCount > 0 && (
           <div className="mt-4">
             <button
               type="button"
@@ -365,7 +372,7 @@ export function EtfsExplorer({ etfs }: { etfs: EtfWithPeriodData[] }) {
                 className="h-3.5 w-3.5"
                 fill={favoritesOnly ? "currentColor" : "none"}
               />
-              <span>Only my favorites ({favorites.size})</span>
+              <span>Only my favorites ({etfFavCount})</span>
             </button>
           </div>
         )}
