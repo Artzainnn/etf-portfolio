@@ -15,10 +15,8 @@ import {
 import { Info } from "lucide-react";
 import { getRawSeries, type Period } from "@/lib/marketData/clientPrices";
 import { CompareSelect } from "./compare-select";
-import {
-  COMPARE_BENCHMARKS,
-  DEFAULT_COMPARE_TICKER,
-} from "@/lib/data/benchmarks";
+import { DEFAULT_COMPARE_TICKER } from "@/lib/data/benchmarks";
+import { getCompareLabel } from "@/lib/data/compare";
 
 interface Allocation {
   ticker: string;
@@ -337,9 +335,7 @@ export function PortfolioBacktest({
     return null;
   }
 
-  const compareLabel =
-    compare &&
-    (COMPARE_BENCHMARKS.find((b) => b.ticker === compare)?.label ?? compare);
+  const compareLabel = compare ? getCompareLabel(compare) : null;
 
   return (
     <section className="mt-8">
@@ -422,7 +418,7 @@ export function PortfolioBacktest({
           {result.compareReturn != null && compareLabel && (
             <>
               <StatTile
-                label={compareLabel.replace(/^[^\s]+\s/, "")}
+                label={compareLabel}
                 value={result.compareReturn}
                 muted
               />

@@ -22,6 +22,7 @@ import {
 import { ALL_ETFS_SYNC } from "@/lib/data/etfs";
 import { ALL_STOCKS_SYNC, annualizedStockReturn } from "@/lib/data/stocks";
 import { resolveLeaves } from "@/lib/portfolio/composition";
+import { getCompareLabel } from "@/lib/data/compare";
 import { getEtfEmoji } from "@/lib/data/emoji";
 import { CompareSelect } from "./compare-select";
 import { DEFAULT_COMPARE_TICKER } from "@/lib/data/benchmarks";
@@ -439,7 +440,7 @@ function HistoryComparison({
           <HistoryChart
             data={chartData}
             portfolios={portfolios}
-            benchmarkLabel={benchmark || null}
+            benchmarkLabel={benchmark ? getCompareLabel(benchmark) : null}
             joinEvents={results?.joinEvents ?? []}
           />
         )}

@@ -16,7 +16,7 @@ import {
   type Period as ClientPeriod,
   type PriceStats as ClientPriceStats,
 } from "@/lib/marketData/clientPrices";
-import { getBenchmark } from "@/lib/data/benchmarks";
+import { getCompareMeta } from "@/lib/data/compare";
 import { StockLogo } from "./stock-logo";
 
 export type Period = ClientPeriod;
@@ -136,7 +136,7 @@ export function PriceChart({
   const compareColor = "#a1a1aa";
   const gradientId = `grad-${ticker}-${period}`;
 
-  const compareBenchmark = compareTicker ? getBenchmark(compareTicker) : null;
+  const compareMeta = compareTicker ? getCompareMeta(compareTicker) : null;
 
   return (
     <div className={`${heightCls} w-full`}>
@@ -261,15 +261,13 @@ export function PriceChart({
             </span>
           )}
           <span className="text-zinc-400 dark:text-zinc-500">vs</span>
-          <span
-            className="inline-flex shrink-0 items-center justify-center leading-none"
-            style={{ fontSize: 16 * 0.85, width: 16, height: 16 }}
-            aria-hidden
-          >
-            {compareBenchmark?.emoji ?? "📊"}
-          </span>
+          <StockLogo
+            ticker={compareTicker}
+            fallbackEmoji={compareMeta?.emoji ?? "📊"}
+            size={16}
+          />
           <span className="truncate">
-            {compareBenchmark?.label ?? compareTicker}
+            {compareMeta?.label ?? compareTicker}
           </span>
         </div>
       )}
