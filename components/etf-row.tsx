@@ -125,6 +125,14 @@ export function EtfRow({
             </span>
             <span className="truncate">{etf.friendlyName ?? etf.name}</span>
           </div>
+          <div className="mt-1 flex items-center gap-1.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-tight text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+              {etf.ticker}
+            </span>
+            {etf.friendlyName && etf.friendlyName !== etf.name && (
+              <span className="truncate">{etf.name}</span>
+            )}
+          </div>
           {etf.shortDescription && (
             <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
               {etf.shortDescription}
