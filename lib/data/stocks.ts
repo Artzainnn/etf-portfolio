@@ -84,3 +84,24 @@ export const COUNTRY_FLAGS: Record<string, string> = {
 export function flagFor(country: string): string {
   return COUNTRY_FLAGS[country] ?? "🌐";
 }
+
+// Country code → readable name (for filter labels, sorting, etc.)
+export const COUNTRY_NAMES: Record<string, string> = {
+  US: "United States",
+  CN: "China",
+  JP: "Japan",
+  DE: "Germany",
+  FR: "France",
+  GB: "United Kingdom",
+  CH: "Switzerland",
+  NL: "Netherlands",
+  DK: "Denmark",
+  IT: "Italy",
+  AR: "Argentina",
+  TW: "Taiwan",
+  SG: "Singapore",
+};
+
+export function countryName(country: string): string {
+  return COUNTRY_NAMES[country] ?? country;
+}

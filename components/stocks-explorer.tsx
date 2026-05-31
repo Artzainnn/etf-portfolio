@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Search, Star } from "lucide-react";
-import type { Stock, PeriodKey } from "@/lib/data/stocks";
+import {
+  countryName,
+  flagFor,
+  type Stock,
+  type PeriodKey,
+} from "@/lib/data/stocks";
 import { StockRow } from "./stock-row";
 import { INDUSTRIES } from "@/lib/data/stock-industries";
 import { listFavorites } from "@/lib/storage/favorites";
@@ -36,6 +41,7 @@ const PERIOD_LABELS: Record<PeriodKey, string> = {
 export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
   const [search, setSearch] = useState("");
   const [activeIndustries, setActiveIndustries] = useState<string[]>([]);
+  const [activeCountries, setActiveCountries] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortKey>("curated");
@@ -71,6 +77,9 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
         );
         if (!match) return false;
       }
+      if (activeCountries.length > 0 && !activeCountries.includes(s.country)) {
+        return false;
+      }
       if (favoritesOnly && !favorites.has(s.ticker)) return false;
       return true;
     });
@@ -90,7 +99,24 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
       );
     }
     return list;
-  }, [stocks, search, activeIndustries, favoritesOnly, favorites, sort, period]);
+  }, [
+    stocks,
+    search,
+    activeIndustries,
+    activeCountries,
+    favoritesOnly,
+    favorites,
+    sort,
+    period,
+  ]);
+
+  // Countries actually present in the data, ordered by name.
+  const availableCountries = useMemo(() => {
+    const set = new Set(stocks.map((s) => s.country));
+    return Array.from(set).sort((a, b) =>
+      countryName(a).localeCompare(countryName(b)),
+    );
+  }, [stocks]);
 
   const toggle =
     (set: string[], setSet: (v: string[]) => void) => (value: string) => {
@@ -102,6 +128,7 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
   const clearAll = () => {
     setSearch("");
     setActiveIndustries([]);
+    setActiveCountries([]);
     setFavoritesOnly(false);
   };
 
@@ -113,7 +140,10 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
   );
 
   const hasFilters =
-    search !== "" || activeIndustries.length > 0 || favoritesOnly;
+    search !== "" ||
+    activeIndustries.length > 0 ||
+    activeCountries.length > 0 ||
+    favoritesOnly;
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10">
@@ -162,6 +192,27 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
             ))}
           </div>
         </div>
+
+        {/* Country chips */}
+        {availableCountries.length > 1 && (
+          <div className="mt-4">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Country
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {availableCountries.map((code) => (
+                <Chip
+                  key={code}
+                  active={activeCountries.includes(code)}
+                  onClick={() => toggle(activeCountries, setActiveCountries)(code)}
+                >
+                  <span aria-hidden>{flagFor(code)}</span>
+                  <span>{countryName(code)}</span>
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Performance period */}
         <div className="mt-4">
