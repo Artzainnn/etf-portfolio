@@ -7,7 +7,7 @@
  * price file, and splices the record into the existing data/stocks.json,
  * leaving every other entry byte-for-byte untouched.
  *
- * Usage: npx tsx scripts/add-one-stock.ts AIR.PA
+ * Usage: npx tsx scripts/add-one-stock.ts AIR.PA [SAF.PA HO.PA ...]
  */
 
 import { config as loadEnv } from "dotenv";
@@ -39,15 +39,22 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Cache FX series per currency so a batch of same-currency stocks
+// (e.g. lots of EUR names) only hits Yahoo once.
+const fxCache = new Map<string, Map<string, number>>();
+
 async function loadFxRates(
   fromCurrency: string,
   fromDate: Date,
 ): Promise<Map<string, number>> {
   if (fromCurrency === "SGD") return new Map();
+  const cached = fxCache.get(fromCurrency);
+  if (cached) return cached;
   const yahooTicker = `${fromCurrency}SGD=X`;
   const fx = await fetchYahooHistory(yahooTicker, fromDate, new Date());
   const map = new Map<string, number>();
   for (const p of fx.prices) map.set(isoDate(p.date), p.close);
+  fxCache.set(fromCurrency, map);
   return map;
 }
 
@@ -109,14 +116,9 @@ function computePeriodStats(rows: PriceRow[]) {
 }
 
 async function main() {
-  const ticker = process.argv[2];
-  if (!ticker) {
-    console.error("Usage: npx tsx scripts/add-one-stock.ts <TICKER>");
-    process.exit(1);
-  }
-  const seed = SEED_STOCKS.find((s) => s.ticker === ticker);
-  if (!seed) {
-    console.error(`${ticker} is not in SEED_STOCKS (add it to stock-data.ts first).`);
+  const tickers = process.argv.slice(2);
+  if (tickers.length === 0) {
+    console.error("Usage: npx tsx scripts/add-one-stock.ts <TICKER> [<TICKER> …]");
     process.exit(1);
   }
 
@@ -124,50 +126,77 @@ async function main() {
   const priceDir = path.resolve(process.cwd(), "public", "data", "prices");
   if (!existsSync(priceDir)) mkdirSync(priceDir, { recursive: true });
 
-  console.log(`Fetching ${ticker}…`);
-  const res = await fetchStockSgd(seed);
-  if (!res || res.rows.length < 2) {
-    console.error(`Failed to fetch a usable series for ${ticker}.`);
-    process.exit(1);
-  }
-  const stats = computePeriodStats(res.rows);
-  const ret1y = stats.periodReturns["1Y"];
-  console.log(`  ✓ ${res.rows.length} points, 1Y=${ret1y != null ? (ret1y * 100).toFixed(1) + "%" : "—"}`);
-
-  // Price file
-  writeFileSync(
-    path.join(priceDir, `${ticker}.json`),
-    JSON.stringify({
-      ticker,
-      nativeCurrency: res.currency,
-      baseCurrency: "SGD",
-      points: res.rows.map((p) => [p.date, p.sgd] as [string, number]),
-    }),
-  );
-
-  // Splice into stocks.json, preserving every other entry verbatim
   const existing = JSON.parse(readFileSync(dataPath, "utf8")) as Record<string, unknown>[];
-  const record = {
-    ticker,
-    name: seed.name,
-    friendlyName: seed.friendlyName,
-    shortDescription: seed.shortDescription,
-    industries: seed.industries,
-    country: seed.country,
-    emoji: seed.emoji,
-    nativeCurrency: res.currency,
-    periodReturns: stats.periodReturns,
-    periodSparklines: stats.periodSparklines,
-  };
-  const idx = existing.findIndex((s) => s.ticker === ticker);
-  if (idx >= 0) existing[idx] = record;
-  else existing.push(record);
+  let added = 0;
+  let updated = 0;
+  const failures: string[] = [];
+
+  for (const ticker of tickers) {
+    const seed = SEED_STOCKS.find((s) => s.ticker === ticker);
+    if (!seed) {
+      console.error(`  ✗ ${ticker} — not in SEED_STOCKS (add it to stock-data.ts first).`);
+      failures.push(ticker);
+      continue;
+    }
+    console.log(`Fetching ${ticker}…`);
+    let res;
+    try {
+      res = await fetchStockSgd(seed);
+    } catch (e) {
+      console.error(`  ✗ ${ticker} — ${(e as Error).message}`);
+      failures.push(ticker);
+      continue;
+    }
+    if (!res || res.rows.length < 2) {
+      console.error(`  ✗ ${ticker} — no usable series`);
+      failures.push(ticker);
+      continue;
+    }
+    const stats = computePeriodStats(res.rows);
+    const ret1y = stats.periodReturns["1Y"];
+    console.log(
+      `  ✓ ${ticker.padEnd(8)} ${res.rows.length} points, 1Y=${ret1y != null ? (ret1y * 100).toFixed(1) + "%" : "—"}`,
+    );
+
+    writeFileSync(
+      path.join(priceDir, `${ticker}.json`),
+      JSON.stringify({
+        ticker,
+        nativeCurrency: res.currency,
+        baseCurrency: "SGD",
+        points: res.rows.map((p) => [p.date, p.sgd] as [string, number]),
+      }),
+    );
+
+    const record = {
+      ticker,
+      name: seed.name,
+      friendlyName: seed.friendlyName,
+      shortDescription: seed.shortDescription,
+      industries: seed.industries,
+      country: seed.country,
+      emoji: seed.emoji,
+      nativeCurrency: res.currency,
+      periodReturns: stats.periodReturns,
+      periodSparklines: stats.periodSparklines,
+    };
+    const idx = existing.findIndex((s) => s.ticker === ticker);
+    if (idx >= 0) {
+      existing[idx] = record;
+      updated++;
+    } else {
+      existing.push(record);
+      added++;
+    }
+  }
 
   writeFileSync(dataPath, JSON.stringify(existing, null, 2));
   console.log(
-    `Wrote public/data/prices/${ticker}.json and ${idx >= 0 ? "updated" : "added"} ${ticker} in data/stocks.json (${existing.length} stocks).`,
+    `\nDone. ${added} added, ${updated} updated, ${failures.length} failed${
+      failures.length ? ` (${failures.join(", ")})` : ""
+    }. data/stocks.json now has ${existing.length} stocks.`,
   );
-  process.exit(0);
+  process.exit(failures.length > 0 ? 1 : 0);
 }
 
 main().catch((err) => {

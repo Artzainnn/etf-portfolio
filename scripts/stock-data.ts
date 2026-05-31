@@ -1408,4 +1408,114 @@ export const SEED_STOCKS: SeedStock[] = [
     industries: ["crypto"],
     country: "US",
   },
+
+  // ─── France large-caps (CAC 40) ───────────────────────────────
+  {
+    ticker: "SAF.PA",
+    name: "Safran SA",
+    friendlyName: "Safran",
+    shortDescription:
+      "Jet engines (co-makes the LEAP with GE) and aircraft equipment. Earns for decades servicing engines it sold.",
+    industries: ["defense", "industrials"],
+    country: "FR",
+  },
+  {
+    ticker: "HO.PA",
+    name: "Thales SA",
+    friendlyName: "Thales",
+    shortDescription:
+      "French defence-electronics champion: radars, secure comms, avionics, cybersecurity. European rearmament play.",
+    industries: ["defense"],
+    country: "FR",
+  },
+  {
+    ticker: "SU.PA",
+    name: "Schneider Electric SE",
+    friendlyName: "Schneider Electric",
+    shortDescription:
+      "Global leader in electrical gear and energy management — a core electrification and data-centre-power play.",
+    industries: ["industrials", "clean_energy"],
+    country: "FR",
+  },
+  {
+    ticker: "AI.PA",
+    name: "L'Air Liquide SA",
+    friendlyName: "Air Liquide",
+    shortDescription:
+      "Industrial gases (oxygen, nitrogen, hydrogen) for industry and healthcare. Steady, defensive compounder.",
+    industries: ["industrials"],
+    country: "FR",
+  },
+  {
+    ticker: "DG.PA",
+    name: "Vinci SA",
+    friendlyName: "Vinci",
+    shortDescription:
+      "Construction and concessions — builds and operates motorways and airports. Toll/airport cash flows + building.",
+    industries: ["industrials"],
+    country: "FR",
+  },
+  {
+    ticker: "OR.PA",
+    name: "L'Oréal SA",
+    friendlyName: "L'Oréal",
+    shortDescription:
+      "World's biggest cosmetics group (Lancôme, Maybelline, La Roche-Posay). Defensive consumer with premium tilt.",
+    industries: ["luxury", "retail"],
+    country: "FR",
+  },
+  {
+    ticker: "RI.PA",
+    name: "Pernod Ricard SA",
+    friendlyName: "Pernod Ricard",
+    shortDescription:
+      "Global spirits house (Absolut, Jameson, Martell, Chivas). Premium drinks brand portfolio.",
+    industries: ["retail", "luxury"],
+    country: "FR",
+  },
+  {
+    ticker: "SAN.PA",
+    name: "Sanofi SA",
+    friendlyName: "Sanofi",
+    shortDescription:
+      "French pharma major — immunology blockbuster Dupixent plus vaccines. Defensive healthcare.",
+    industries: ["pharma"],
+    country: "FR",
+  },
+  {
+    ticker: "DSY.PA",
+    name: "Dassault Systèmes SE",
+    friendlyName: "Dassault Systèmes",
+    shortDescription:
+      "3D design and engineering software (CATIA, SolidWorks). High-margin industrial software compounder.",
+    industries: ["saas"],
+    country: "FR",
+  },
+  {
+    ticker: "CAP.PA",
+    name: "Capgemini SE",
+    friendlyName: "Capgemini",
+    shortDescription:
+      "Global IT services and consulting — digital transformation, cloud, and AI integration for enterprises.",
+    industries: ["saas"],
+    country: "FR",
+  },
+  {
+    ticker: "BNP.PA",
+    name: "BNP Paribas SA",
+    friendlyName: "BNP Paribas",
+    shortDescription:
+      "The eurozone's largest bank by assets. Retail, corporate and investment banking across Europe.",
+    industries: ["finance"],
+    country: "FR",
+  },
+  {
+    ticker: "CS.PA",
+    name: "AXA SA",
+    friendlyName: "AXA",
+    shortDescription:
+      "One of the world's biggest insurers — life, property & casualty, and asset management.",
+    industries: ["finance"],
+    country: "FR",
+  },
 ];
