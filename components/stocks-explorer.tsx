@@ -176,9 +176,15 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
 
         {/* Industry chips */}
         <div className="mt-4">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Industry
-          </div>
+          <FilterGroupHeader
+            label="Industry"
+            total={INDUSTRIES.length}
+            activeCount={activeIndustries.length}
+            onSelectAll={() =>
+              setActiveIndustries(INDUSTRIES.map((i) => i.key))
+            }
+            onClear={() => setActiveIndustries([])}
+          />
           <div className="flex flex-wrap gap-2">
             {INDUSTRIES.map((ind) => (
               <Chip
@@ -196,9 +202,13 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
         {/* Country chips */}
         {availableCountries.length > 1 && (
           <div className="mt-4">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Country
-            </div>
+            <FilterGroupHeader
+              label="Country"
+              total={availableCountries.length}
+              activeCount={activeCountries.length}
+              onSelectAll={() => setActiveCountries(availableCountries)}
+              onClear={() => setActiveCountries([])}
+            />
             <div className="flex flex-wrap gap-2">
               {availableCountries.map((code) => (
                 <Chip
@@ -320,6 +330,48 @@ export function StocksExplorer({ stocks }: { stocks: Stock[] }) {
               <StockRow key={stock.ticker} stock={stock} previewPeriod={period} />
             ))}
           </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FilterGroupHeader({
+  label,
+  total,
+  activeCount,
+  onSelectAll,
+  onClear,
+}: {
+  label: string;
+  total: number;
+  activeCount: number;
+  onSelectAll: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        {label}
+      </span>
+      <div className="flex items-center gap-3 text-[11px] font-medium">
+        {activeCount < total && (
+          <button
+            type="button"
+            onClick={onSelectAll}
+            className="text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            Select all
+          </button>
+        )}
+        {activeCount > 0 && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            Clear
+          </button>
         )}
       </div>
     </div>
