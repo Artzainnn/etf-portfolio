@@ -8,6 +8,7 @@ export const LOGO_FILES: Record<string, string> = {
   "ABBN.SW": "ABBN.SW.ico",
   "ABBV": "ABBV.jpg",
   "ABNB": "ABNB.jpg",
+  "AC.PA": "AC.PA.png",
   "ADBE": "ADBE.ico",
   "AGGG.L": "AGGG.L.ico",
   "AI.PA": "AI.PA.ico",

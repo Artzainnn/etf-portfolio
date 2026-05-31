@@ -490,6 +490,15 @@ export const SEED_STOCKS: SeedStock[] = [
     country: "US",
   },
   {
+    ticker: "AC.PA",
+    name: "Accor SA",
+    friendlyName: "Accor",
+    shortDescription:
+      "Europe's largest hotel group — brands from luxury (Sofitel, Raffles, Fairmont) to budget (Ibis). Travel-cycle exposure.",
+    industries: ["travel"],
+    country: "FR",
+  },
+  {
     ticker: "DAL",
     name: "Delta Air Lines Inc.",
     friendlyName: "Delta Air Lines",
