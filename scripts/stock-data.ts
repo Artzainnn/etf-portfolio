@@ -366,6 +366,15 @@ export const SEED_STOCKS: SeedStock[] = [
     industries: ["defense"],
     country: "DE",
   },
+  {
+    ticker: "AIR.PA",
+    name: "Airbus SE",
+    friendlyName: "Airbus",
+    shortDescription:
+      "Europe's aerospace giant and Boeing's main rival. Commercial jets (A320/A350), plus defence, helicopters and space.",
+    industries: ["defense", "industrials"],
+    country: "FR",
+  },
 
   // ─── Energy (oil & gas) ────────────────────────────────────────
   {
