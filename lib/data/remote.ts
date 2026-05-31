@@ -31,6 +31,14 @@ export function remoteUrl(pathInRepo: string): string {
  * Fetch JSON from the remote repo with a local fallback. Bypasses the
  * Next.js Data Cache (`no-store`) so the live site always reflects the
  * current data; returns the bundled fallback if the fetch fails.
+ *
+ * Staleness guard: jsDelivr purges propagate per-POP, so right after a
+ * deploy that adds funds/stocks one edge can still serve the shorter,
+ * older list while another is fresh. Since the bundled snapshot ships
+ * with the deploy and is always current, we never serve *fewer* array
+ * items than the bundle — we prefer the bundle until the CDN catches up.
+ * Once the remote list is at least as long (e.g. a daily refresh), the
+ * remote copy (with fresher numbers) wins again.
  */
 export async function fetchRemoteJsonOrFallback<T>(
   pathInRepo: string,
@@ -40,6 +48,13 @@ export async function fetchRemoteJsonOrFallback<T>(
     const res = await fetch(remoteUrl(pathInRepo), { cache: "no-store" });
     if (!res.ok) return fallback;
     const json = (await res.json()) as T;
+    if (
+      Array.isArray(json) &&
+      Array.isArray(fallback) &&
+      json.length < fallback.length
+    ) {
+      return fallback;
+    }
     return json;
   } catch {
     return fallback;
