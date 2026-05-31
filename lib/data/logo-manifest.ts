@@ -31,6 +31,7 @@ export const LOGO_FILES: Record<string, string> = {
   "BP": "BP.png",
   "BYDDY": "BYDDY.png",
   "C6L.SI": "C6L.SI.png",
+  "CACC.PA": "CACC.PA.ico",
   "CAP.PA": "CAP.PA.ico",
   "CAT": "CAT.ico",
   "CCL": "CCL.jpg",

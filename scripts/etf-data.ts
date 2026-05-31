@@ -1259,4 +1259,38 @@ export const seedEtfs: NewEtf[] = [
     benchmark: "Bloomberg Global Aggregate",
     tags: ["bonds", "core", "defensive", "global"],
   },
+
+  // ─── Single-country: France ─────────────────────────────────────────────
+  {
+    ticker: "CACC.PA",
+    isin: "FR0013380607",
+    friendlyName: "France's 40 biggest companies",
+    name: "Amundi CAC 40 UCITS ETF (Acc)",
+    shortDescription:
+      "The 40 largest companies on the Paris exchange — LVMH, TotalEnergies, Sanofi, Airbus, L'Oréal. A concentrated single-country bet.",
+    longDescription:
+      "Tracks the CAC 40, France's blue-chip index of its 40 largest listed companies. Heavily weighted toward luxury (LVMH, Hermès, Kering), energy (TotalEnergies) and healthcare (Sanofi) — though most are global multinationals. Accumulating share class, so dividends are reinvested automatically. A narrow, single-country bet: far less diversified than a Europe-wide or world fund.",
+    category: "region",
+    subCategory: "france",
+    ter: "0.0025",
+    domicile: "France",
+    isUcits: true,
+    isAccumulating: true,
+    exchange: "Euronext Paris",
+    currency: "EUR",
+    riskScore: 4,
+    issuer: "Amundi",
+    benchmark: "CAC 40",
+    tags: ["france", "europe", "single-country", "large-cap"],
+    pros: [
+      "Exposure to France's blue-chip multinationals (LVMH, TotalEnergies, Sanofi, Airbus)",
+      "Accumulating — dividends are reinvested automatically",
+      "Low 0.25% annual fee",
+    ],
+    cons: [
+      "Very concentrated — just 40 stocks in a single country",
+      "Heavy luxury and energy tilt",
+      "Less diversified than a Europe-wide or world fund",
+    ],
+  },
 ];

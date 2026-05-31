@@ -22,6 +22,7 @@ const ETF_EMOJIS: Record<string, string> = {
   "IMEU.L": "🇪🇺",
   "IEUX.L": "🇪🇺",
   "ISF.L": "🇬🇧",
+  "CACC.PA": "🇫🇷", // CAC 40 (France)
   "SJPA.L": "🇯🇵",
   "NDIA.L": "🇮🇳",
   "CPXJ.L": "🌏",

@@ -202,6 +202,7 @@ export const STOCK_DOMAINS: Record<string, string> = {
   "CS.PA": "axa.com", // AXA
 
   // ─── ETF benchmarks (mapped to the index brand or issuer) ──
+  "CACC.PA": "amundi.com", // Amundi CAC 40
   "CSPX.L": "spglobal.com", // S&P 500
   "IWDA.L": "msci.com", // MSCI World
   "SWRD.L": "msci.com",
